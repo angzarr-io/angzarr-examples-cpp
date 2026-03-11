@@ -9,7 +9,7 @@
 #
 # When running outside a devcontainer:
 #   - Builds/uses local devcontainer image with `just` pre-installed
-#   - Podman mounts justfile.container as /workspace/examples/cpp/justfile
+#   - Podman mounts justfile.container as /workspace/justfile
 #   - `just build` on host → podman runs → `just build` in container → `cmake ...`
 #
 # When running inside a devcontainer (DEVCONTAINER=true):
@@ -18,13 +18,13 @@
 
 set shell := ["bash", "-c"]
 
-TOP := `git rev-parse --show-toplevel`
+ROOT := `git rev-parse --show-toplevel`
 IMAGE := "angzarr-cpp-dev"
 
 # Build the devcontainer image
 [private]
 _build-image:
-    podman build --network=host -t {{IMAGE}} -f "{{TOP}}/examples/cpp/.devcontainer/Containerfile" "{{TOP}}/examples/cpp/.devcontainer"
+    podman build --network=host -t {{IMAGE}} -f "{{ROOT}}/.devcontainer/Containerfile" "{{ROOT}}/.devcontainer"
 
 # Run just target in container (or directly if already in devcontainer)
 [private]
@@ -34,9 +34,9 @@ _container +ARGS: _build-image
         just {{ARGS}}
     else
         podman run --rm --network=host \
-            -v "{{TOP}}:/workspace:Z" \
-            -v "{{TOP}}/examples/cpp/justfile.container:/workspace/examples/cpp/justfile:ro" \
-            -w /workspace/examples/cpp \
+            -v "{{ROOT}}:/workspace:Z" \
+            -v "{{ROOT}}/justfile.container:/workspace/justfile:ro" \
+            -w /workspace \
             {{IMAGE}} just {{ARGS}}
     fi
 
@@ -61,4 +61,4 @@ lint:
     just _container lint
 
 clean:
-    rm -rf "{{TOP}}/examples/cpp/build"
+    rm -rf "{{ROOT}}/build"
