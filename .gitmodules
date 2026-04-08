@@ -1,3 +1,6 @@
 [submodule "angzarr-client-cpp"]
 	path = angzarr-client-cpp
 	url = https://github.com/angzarr-io/angzarr-client-cpp.git
+[submodule "angzarr-project"]
+	path = angzarr-project
+	url = https://github.com/angzarr-io/angzarr-project.git
