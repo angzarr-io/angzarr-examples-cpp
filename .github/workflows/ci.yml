@@ -6,8 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/angzarr-io/examples-cpp
+  COORDINATOR_VERSION: latest
+  HELM_CHART: oci://ghcr.io/angzarr-io/charts/angzarr
+  HELM_CHART_VERSION: "0.2.2"
+
 jobs:
-  build:
+  test:
     name: Build & Test
     runs-on: ubuntu-latest
     container: ghcr.io/angzarr-io/angzarr-cpp:latest
@@ -27,3 +34,245 @@ jobs:
 
       - name: Lint
         run: just lint
+
+  build-images:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        target:
+          - agg-player
+          - agg-table
+          - agg-hand
+          - saga-table-hand
+          - saga-table-player
+          - saga-hand-table
+          - saga-hand-player
+          - pmg-hand-flow
+          - prj-output
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image tags
+        id: tags
+        run: |
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUM="${{ github.event.pull_request.number }}"
+            echo "tags=${{ env.IMAGE_PREFIX }}-${{ matrix.target }}:pr-${PR_NUM}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          else
+            echo "tags=${{ env.IMAGE_PREFIX }}-${{ matrix.target }}:${SHORT_SHA},${{ env.IMAGE_PREFIX }}-${{ matrix.target }}:latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Containerfile
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  acceptance-test:
+    name: Acceptance Tests
+    runs-on: ubuntu-latest
+    needs: build-images
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUM="${{ github.event.pull_request.number }}"
+            echo "tag=pr-${PR_NUM}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: angzarr-test
+          config: deploy/kind/cluster.yaml
+          node_image: kindest/node:v1.31.0
+          wait: 120s
+
+      - name: Create namespace
+        run: kubectl create namespace angzarr-test --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create image pull secret
+        run: |
+          kubectl create secret docker-registry ghcr-pull-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password="${{ secrets.GITHUB_TOKEN }}" \
+            --namespace=angzarr-test \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl patch serviceaccount default -n angzarr-test \
+            -p '{"imagePullSecrets": [{"name": "ghcr-pull-secret"}]}' || true
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Helm registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Pull and load coordinator images
+        run: |
+          VERSION="${{ env.COORDINATOR_VERSION }}"
+          for img in angzarr-aggregate angzarr-saga angzarr-projector angzarr-process-manager angzarr-stream angzarr-grpc-gateway angzarr-log; do
+            FULL="ghcr.io/angzarr-io/${img}:${VERSION}"
+            echo "Pulling ${FULL}..."
+            docker pull "${FULL}"
+            kind load docker-image "${FULL}" --name angzarr-test
+          done
+
+      - name: Pull and load example images
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          TARGETS="agg-player agg-table agg-hand saga-table-hand saga-table-player saga-hand-table saga-hand-player pmg-hand-flow prj-output"
+          for target in $TARGETS; do
+            IMG="${{ env.IMAGE_PREFIX }}-${target}:${TAG}"
+            echo "Pulling ${IMG}..."
+            docker pull "${IMG}"
+            kind load docker-image "${IMG}" --name angzarr-test
+          done
+
+      - name: Deploy with Helm
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          helm upgrade --install poker \
+            ${{ env.HELM_CHART }} \
+            --version ${{ env.HELM_CHART_VERSION }} \
+            -f deploy/k8s/helm/values.yaml \
+            -f deploy/k8s/helm/values-ci.yaml \
+            --set-string global.image.tag="${TAG}" \
+            --namespace angzarr-test \
+            --wait \
+            --timeout 5m
+
+      - name: Wait for pods to be ready
+        run: |
+          echo "Waiting for pods to be ready..."
+          kubectl wait --for=condition=ready pod --all -n angzarr-test --timeout=300s || true
+          echo ""
+          echo "=== Pod Status ==="
+          kubectl get pods -n angzarr-test -o wide
+
+      - name: Smoke test - verify pods running
+        run: |
+          echo "=== Smoke Test ==="
+          TOTAL=$(kubectl get pods -n angzarr-test --no-headers | wc -l)
+          RUNNING=$(kubectl get pods -n angzarr-test --no-headers | grep -c "Running" || true)
+          FAILED=$(kubectl get pods -n angzarr-test --no-headers | grep -cE "Error|CrashLoopBackOff|ImagePullBackOff" || true)
+
+          echo "Total pods: ${TOTAL}"
+          echo "Running: ${RUNNING}"
+          echo "Failed: ${FAILED}"
+
+          if [ "${FAILED}" -gt 0 ]; then
+            echo "ERROR: ${FAILED} pod(s) in error state"
+            kubectl get pods -n angzarr-test --no-headers | grep -E "Error|CrashLoopBackOff|ImagePullBackOff"
+            exit 1
+          fi
+
+          if [ "${RUNNING}" -lt 3 ]; then
+            echo "ERROR: Expected at least 3 running pods (aggregates), got ${RUNNING}"
+            exit 1
+          fi
+
+          echo "Smoke test passed: ${RUNNING} pods running"
+
+      - name: Smoke test - gateway port-forward
+        run: |
+          # Port-forward gateway and verify it responds
+          GATEWAY_POD=$(kubectl get pods -n angzarr-test -l app.kubernetes.io/component=gateway -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+          if [ -n "${GATEWAY_POD}" ]; then
+            echo "Port-forwarding to gateway pod: ${GATEWAY_POD}"
+            kubectl port-forward -n angzarr-test "${GATEWAY_POD}" 9084:9084 &
+            PF_PID=$!
+            sleep 3
+
+            # Verify port-forward is working (gateway is gRPC, so just check the port is open)
+            if curl -sf -o /dev/null http://localhost:9084 2>/dev/null || nc -z localhost 9084 2>/dev/null; then
+              echo "Gateway port-forward successful - port 9084 is reachable"
+            else
+              echo "WARNING: Gateway port may not be reachable (expected for gRPC-only services)"
+            fi
+
+            kill $PF_PID 2>/dev/null || true
+          else
+            echo "WARNING: No gateway pod found, skipping port-forward test"
+          fi
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "=== Pod Status ==="
+          kubectl get pods -n angzarr-test -o wide
+          echo ""
+          echo "=== Recent Events ==="
+          kubectl get events -n angzarr-test --sort-by='.lastTimestamp' | tail -30
+          echo ""
+          echo "=== Pod Logs ==="
+          for pod in $(kubectl get pods -n angzarr-test -o name 2>/dev/null); do
+            echo "--- $pod ---"
+            kubectl logs $pod -n angzarr-test --all-containers --tail=50 || true
+          done
+
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: [test, build-images, acceptance-test]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Images | ${{ needs.build-images.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Acceptance Tests | ${{ needs.acceptance-test.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.build-images.result }}" != "success" ] || \
+             [ "${{ needs.acceptance-test.result }}" != "success" ]; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi
