@@ -14,11 +14,12 @@ default:
 # Export proto files: core and examples from angzarr-project submodule
 proto-gen:
     mkdir -p {{PROTO_DIR}}
-    cp -r angzarr-project/proto/angzarr/* {{PROTO_DIR}}/
+    buf export angzarr-project/proto -o _proto_export
+    cp -r _proto_export/angzarr/* {{PROTO_DIR}}/
     mkdir -p {{PROTO_DIR}}/examples
-    cp angzarr-project/proto/examples/*.proto {{PROTO_DIR}}/examples/
-    rm -f {{PROTO_DIR}}/examples/ai_player.proto
+    cp _proto_export/examples/*.proto {{PROTO_DIR}}/examples/
     rm -f {{PROTO_DIR}}/examples/ai_sidecar.proto
+    rm -rf _proto_export
 
 # Configure and build all C++ components
 build: proto-gen
