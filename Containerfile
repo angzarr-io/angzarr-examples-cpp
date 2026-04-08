@@ -38,6 +38,9 @@ FROM base AS proto
 # Copy proto files from the vendored client submodule (core + google/api)
 COPY angzarr-client-cpp/angzarr/proto ./angzarr-client-cpp/angzarr/proto
 
+# Copy C++ client headers (router.hpp, aggregate.hpp, etc.)
+COPY angzarr-client-cpp/include ./angzarr-client-cpp/include
+
 # Copy examples protos from angzarr-project into the client proto tree
 # (mirrors what justfile.container proto-gen does via buf export)
 COPY angzarr-project/proto/examples ./angzarr-client-cpp/angzarr/proto/examples
