@@ -11,7 +11,7 @@ find_package(gRPC CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
 
 # Proto files location
-set(PROTO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../proto")
+set(PROTO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/angzarr-client-cpp/angzarr/proto")
 set(ANGZARR_PROTO_DIR "${PROTO_ROOT}/angzarr")
 set(EXAMPLES_PROTO_DIR "${PROTO_ROOT}/examples")
 set(GOOGLE_API_PROTO_DIR "${PROTO_ROOT}/google/api")
@@ -71,7 +71,7 @@ target_link_libraries(angzarr_proto PUBLIC
 # Client library - use the canonical client from client/cpp
 add_library(angzarr_client INTERFACE)
 target_include_directories(angzarr_client INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../client/cpp/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/angzarr-client-cpp/include
 )
 target_link_libraries(angzarr_client INTERFACE
     angzarr_proto
