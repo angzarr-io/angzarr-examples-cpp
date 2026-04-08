@@ -70,7 +70,7 @@ make_request() {
       }
     }]
   },
-  "syncMode": "SIMPLE"
+  "syncMode": "SYNC_MODE_SIMPLE"
 }
 EOF
 }
