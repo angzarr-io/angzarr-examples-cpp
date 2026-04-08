@@ -237,13 +237,29 @@ jobs:
       - name: Deploy with Helm
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          COORD_VER: ${{ env.COORDINATOR_VERSION }}
         run: |
           helm upgrade --install poker \
             ${{ env.HELM_CHART }} \
             --version ${{ env.HELM_CHART_VERSION }} \
             -f deploy/k8s/helm/values.yaml \
             -f deploy/k8s/helm/values-ci.yaml \
-            --set-string global.image.tag="${TAG}" \
+            --set images.aggregate.tag="${COORD_VER}" \
+            --set images.saga.tag="${COORD_VER}" \
+            --set images.projector.tag="${COORD_VER}" \
+            --set images.processManager.tag="${COORD_VER}" \
+            --set images.stream.tag="${COORD_VER}" \
+            --set images.gateway.tag="${COORD_VER}" \
+            --set images.log.tag="${COORD_VER}" \
+            --set "applications.business[0].image.tag=${TAG}" \
+            --set "applications.business[1].image.tag=${TAG}" \
+            --set "applications.business[2].image.tag=${TAG}" \
+            --set "applications.sagas[0].image.tag=${TAG}" \
+            --set "applications.sagas[1].image.tag=${TAG}" \
+            --set "applications.sagas[2].image.tag=${TAG}" \
+            --set "applications.sagas[3].image.tag=${TAG}" \
+            --set "applications.processManagers[0].image.tag=${TAG}" \
+            --set "applications.projectors[0].image.tag=${TAG}" \
             --namespace angzarr-test \
             --wait \
             --timeout 5m
