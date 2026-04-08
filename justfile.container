@@ -54,10 +54,14 @@ test: test-unit test-acceptance
 fmt:
     find . -name "*.cpp" -o -name "*.hpp" | grep -v build | xargs clang-format -i
 
-# Lint with clang-tidy
+# Lint with clang-tidy (only files known to compile_commands.json)
 lint:
     cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-    find . -name "*.cpp" | grep -v build | xargs clang-tidy -p {{BUILD_DIR}}
+    grep '"file"' {{BUILD_DIR}}/compile_commands.json \
+        | sed 's/.*"file": *"//;s/".*//' \
+        | grep -v '/build/' \
+        | sort -u \
+        | xargs clang-tidy -p {{BUILD_DIR}}
 
 # Clean build artifacts
 clean:
