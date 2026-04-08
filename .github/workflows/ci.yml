@@ -37,6 +37,8 @@ jobs:
         run: |
           mkdir -p angzarr-client-cpp/angzarr/proto/examples
           cp angzarr-project/proto/examples/*.proto angzarr-client-cpp/angzarr/proto/examples/
+          rm -f angzarr-client-cpp/angzarr/proto/examples/ai_player.proto
+          rm -f angzarr-client-cpp/angzarr/proto/examples/ai_sidecar.proto
 
       - name: Build
         run: just -f justfile.container build
