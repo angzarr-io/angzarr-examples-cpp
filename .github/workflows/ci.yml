@@ -31,14 +31,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Install build dependencies
-        run: apt-get update && apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev libtclap-dev
-
-      - name: Copy example protos into client proto tree
-        run: |
-          mkdir -p angzarr-client-cpp/angzarr/proto/examples
-          cp angzarr-project/proto/examples/*.proto angzarr-client-cpp/angzarr/proto/examples/
-          rm -f angzarr-client-cpp/angzarr/proto/examples/ai_player.proto
-          rm -f angzarr-client-cpp/angzarr/proto/examples/ai_sidecar.proto
+        run: apt-get update && apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev libtclap-dev clang-tidy
 
       - name: Build
         run: just -f justfile.container build

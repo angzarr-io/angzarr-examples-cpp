@@ -6,12 +6,20 @@
 set shell := ["bash", "-c"]
 
 BUILD_DIR := "build"
+PROTO_DIR := "angzarr-client-cpp/angzarr/proto"
 
 default:
     @just --list
 
+# Export proto files from buf.build
+proto-gen:
+    buf export buf.build/angzarr/angzarr -o {{PROTO_DIR}}
+    buf export buf.build/angzarr/examples -o {{PROTO_DIR}}
+    rm -f {{PROTO_DIR}}/examples/ai_player.proto
+    rm -f {{PROTO_DIR}}/examples/ai_sidecar.proto
+
 # Configure and build all C++ components
-build:
+build: proto-gen
     cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
     cmake --build {{BUILD_DIR}} -j$(nproc)
 
