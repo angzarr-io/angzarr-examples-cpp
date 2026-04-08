@@ -35,8 +35,15 @@ WORKDIR /app
 # ============================================================================
 FROM base AS proto
 
-# Copy proto files from the vendored client submodule
+# Copy proto files from the vendored client submodule (core + google/api)
 COPY angzarr-client-cpp/angzarr/proto ./angzarr-client-cpp/angzarr/proto
+
+# Copy examples protos from angzarr-project into the client proto tree
+# (mirrors what justfile.container proto-gen does via buf export)
+COPY angzarr-project/proto/examples ./angzarr-client-cpp/angzarr/proto/examples
+# Remove ai_sidecar.proto (not used in C++ examples, matches proto-gen recipe)
+RUN rm -f ./angzarr-client-cpp/angzarr/proto/examples/ai_sidecar.proto
+
 COPY CMakeLists.txt ./
 COPY client ./client
 
