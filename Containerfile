@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 # C++ poker examples - optimized multi-stage build
-# Build: podman build -t poker-cpp-player --target agg-player -f examples/cpp/Containerfile .
-# Context must be repo root for proto access
+# Build: podman build -t poker-cpp-player --target agg-player -f Containerfile .
+# Context must be repo root
 #
 # Optimizations:
 # 1. Shared CMake build - all targets share proto compilation
@@ -35,27 +35,24 @@ WORKDIR /app
 # ============================================================================
 FROM base AS proto
 
-# Copy proto files
-COPY proto ./proto
-COPY examples/cpp/CMakeLists.txt ./examples/cpp/
-COPY examples/cpp/client ./examples/cpp/client
-
-# Copy C++ client library (required for angzarr/router.hpp etc.)
-COPY client/cpp ./client/cpp
+# Copy proto files from the vendored client submodule
+COPY angzarr-client-cpp/angzarr/proto ./angzarr-client-cpp/angzarr/proto
+COPY CMakeLists.txt ./
+COPY client ./client
 
 # Create stub CMakeLists for subdirectories
-RUN mkdir -p examples/cpp/player/agg examples/cpp/player/upc examples/cpp/player/saga-table \
-    examples/cpp/table/agg examples/cpp/hand/agg \
-    examples/cpp/table/saga-hand examples/cpp/table/saga-player \
-    examples/cpp/hand/saga-table examples/cpp/hand/saga-player \
-    examples/cpp/hand-flow examples/cpp/hand-flow-oo examples/cpp/prj-output \
+RUN mkdir -p player/agg player/upc player/saga-table \
+    table/agg hand/agg \
+    table/saga-hand table/saga-player \
+    hand/saga-table hand/saga-player \
+    hand-flow hand-flow-oo prj-output \
     && for dir in player/agg player/upc player/saga-table table/agg hand/agg \
        table/saga-hand table/saga-player hand/saga-table hand/saga-player \
        hand-flow hand-flow-oo prj-output; do \
-       echo "# Stub" > examples/cpp/$dir/CMakeLists.txt; \
+       echo "# Stub" > $dir/CMakeLists.txt; \
     done
 
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 
 # Configure and build just proto library
 RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release .. \
@@ -69,14 +66,14 @@ FROM proto AS source
 WORKDIR /app
 
 # Copy all example source
-COPY examples/cpp/player ./examples/cpp/player
-COPY examples/cpp/table ./examples/cpp/table
-COPY examples/cpp/hand ./examples/cpp/hand
-COPY examples/cpp/hand-flow ./examples/cpp/hand-flow
-COPY examples/cpp/hand-flow-oo ./examples/cpp/hand-flow-oo
-COPY examples/cpp/prj-output ./examples/cpp/prj-output
+COPY player ./player
+COPY table ./table
+COPY hand ./hand
+COPY hand-flow ./hand-flow
+COPY hand-flow-oo ./hand-flow-oo
+COPY prj-output ./prj-output
 
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 
 # Reconfigure with real CMakeLists
 RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
@@ -85,17 +82,17 @@ RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
 # Aggregate builds
 # ============================================================================
 FROM source AS build-player
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja agg-player
 
 FROM source AS build-table
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja agg-table
 
 FROM source AS build-hand
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja agg-hand
 
@@ -103,22 +100,22 @@ RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
 # Saga builds
 # ============================================================================
 FROM source AS build-saga-table-hand
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja saga-table-hand
 
 FROM source AS build-saga-table-player
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja saga-table-player
 
 FROM source AS build-saga-hand-table
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja saga-hand-table
 
 FROM source AS build-saga-hand-player
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja saga-hand-player
 
@@ -126,7 +123,7 @@ RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
 # Process Manager build
 # ============================================================================
 FROM source AS build-pmg-hand-flow
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja pmg-hand-flow
 
@@ -134,7 +131,7 @@ RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
 # Projector build
 # ============================================================================
 FROM source AS build-prj-output
-WORKDIR /app/examples/cpp/build
+WORKDIR /app/build
 RUN --mount=type=cache,id=cpp-build-cache,target=/root/.cache,sharing=locked \
     ninja prj-output
 
@@ -157,19 +154,19 @@ USER angzarr
 # Domain Aggregates
 # ============================================================================
 FROM runtime AS agg-player
-COPY --from=build-player --chown=angzarr:angzarr /app/examples/cpp/build/player/agg/agg-player ./server
+COPY --from=build-player --chown=angzarr:angzarr /app/build/player/agg/agg-player ./server
 ENV PORT=50601
 EXPOSE 50601
 ENTRYPOINT ["./server"]
 
 FROM runtime AS agg-table
-COPY --from=build-table --chown=angzarr:angzarr /app/examples/cpp/build/table/agg/agg-table ./server
+COPY --from=build-table --chown=angzarr:angzarr /app/build/table/agg/agg-table ./server
 ENV PORT=50602
 EXPOSE 50602
 ENTRYPOINT ["./server"]
 
 FROM runtime AS agg-hand
-COPY --from=build-hand --chown=angzarr:angzarr /app/examples/cpp/build/hand/agg/agg-hand ./server
+COPY --from=build-hand --chown=angzarr:angzarr /app/build/hand/agg/agg-hand ./server
 ENV PORT=50603
 EXPOSE 50603
 ENTRYPOINT ["./server"]
@@ -178,25 +175,25 @@ ENTRYPOINT ["./server"]
 # Sagas
 # ============================================================================
 FROM runtime AS saga-table-hand
-COPY --from=build-saga-table-hand --chown=angzarr:angzarr /app/examples/cpp/build/table/saga-hand/saga-table-hand ./server
+COPY --from=build-saga-table-hand --chown=angzarr:angzarr /app/build/table/saga-hand/saga-table-hand ./server
 ENV PORT=50611
 EXPOSE 50611
 ENTRYPOINT ["./server"]
 
 FROM runtime AS saga-table-player
-COPY --from=build-saga-table-player --chown=angzarr:angzarr /app/examples/cpp/build/table/saga-player/saga-table-player ./server
+COPY --from=build-saga-table-player --chown=angzarr:angzarr /app/build/table/saga-player/saga-table-player ./server
 ENV PORT=50612
 EXPOSE 50612
 ENTRYPOINT ["./server"]
 
 FROM runtime AS saga-hand-table
-COPY --from=build-saga-hand-table --chown=angzarr:angzarr /app/examples/cpp/build/hand/saga-table/saga-hand-table ./server
+COPY --from=build-saga-hand-table --chown=angzarr:angzarr /app/build/hand/saga-table/saga-hand-table ./server
 ENV PORT=50613
 EXPOSE 50613
 ENTRYPOINT ["./server"]
 
 FROM runtime AS saga-hand-player
-COPY --from=build-saga-hand-player --chown=angzarr:angzarr /app/examples/cpp/build/hand/saga-player/saga-hand-player ./server
+COPY --from=build-saga-hand-player --chown=angzarr:angzarr /app/build/hand/saga-player/saga-hand-player ./server
 ENV PORT=50614
 EXPOSE 50614
 ENTRYPOINT ["./server"]
@@ -205,7 +202,7 @@ ENTRYPOINT ["./server"]
 # Process Manager
 # ============================================================================
 FROM runtime AS pmg-hand-flow
-COPY --from=build-pmg-hand-flow --chown=angzarr:angzarr /app/examples/cpp/build/hand-flow/pmg-hand-flow ./server
+COPY --from=build-pmg-hand-flow --chown=angzarr:angzarr /app/build/hand-flow/pmg-hand-flow ./server
 ENV PORT=50691
 EXPOSE 50691
 ENTRYPOINT ["./server"]
@@ -214,7 +211,7 @@ ENTRYPOINT ["./server"]
 # Projector
 # ============================================================================
 FROM runtime AS prj-output
-COPY --from=build-prj-output --chown=angzarr:angzarr /app/examples/cpp/build/prj-output/prj-output ./server
+COPY --from=build-prj-output --chown=angzarr:angzarr /app/build/prj-output/prj-output ./server
 ENV PORT=50690
 EXPOSE 50690
 ENTRYPOINT ["./server"]
