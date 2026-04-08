@@ -11,9 +11,10 @@ PROTO_DIR := "angzarr-client-cpp/angzarr/proto"
 default:
     @just --list
 
-# Export proto files: core from BSR, examples from local submodule
+# Export proto files: core and examples from angzarr-project submodule
 proto-gen:
-    buf export buf.build/angzarr/angzarr -o {{PROTO_DIR}}
+    mkdir -p {{PROTO_DIR}}
+    cp -r angzarr-project/proto/angzarr/* {{PROTO_DIR}}/
     mkdir -p {{PROTO_DIR}}/examples
     cp angzarr-project/proto/examples/*.proto {{PROTO_DIR}}/examples/
     rm -f {{PROTO_DIR}}/examples/ai_player.proto
