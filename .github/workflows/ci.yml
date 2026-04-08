@@ -11,7 +11,7 @@ env:
   IMAGE_PREFIX: ghcr.io/angzarr-io/examples-cpp
   COORDINATOR_VERSION: latest
   HELM_CHART: oci://ghcr.io/angzarr-io/charts/angzarr
-  HELM_CHART_VERSION: "0.5.0"
+  HELM_CHART_VERSION: "0.5.1"
 
 jobs:
   test:
