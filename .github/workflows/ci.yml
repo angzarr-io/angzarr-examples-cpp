@@ -31,13 +31,13 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Build
-        run: just build
+        run: just -f justfile.container build
 
       - name: Test (unit)
-        run: just test-unit
+        run: just -f justfile.container test-unit
 
       - name: Lint
-        run: just lint
+        run: just -f justfile.container lint
 
   build-images:
     name: Build & Push Images
