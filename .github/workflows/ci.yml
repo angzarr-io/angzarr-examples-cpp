@@ -350,8 +350,7 @@ jobs:
       - name: Run acceptance tests
         env:
           PLAYER_URL: "localhost:1310"
-          PROTOSET: "/tmp/types.bin"
-        run: bash tests/acceptance.sh
+        run: just -f justfile.container test-acceptance
 
       - name: Stop port-forward
         if: always()
