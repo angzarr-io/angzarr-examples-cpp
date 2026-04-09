@@ -252,8 +252,14 @@ jobs:
             --set images.gateway.tag="${COORD_VER}" \
             --set images.log.tag="${COORD_VER}" \
             --set "applications.business[0].image.tag=${TAG}" \
+            --set "applications.business[0].debug.enabled=true" \
+            --set "applications.business[0].debug.nodePort=31310" \
             --set "applications.business[1].image.tag=${TAG}" \
+            --set "applications.business[1].debug.enabled=true" \
+            --set "applications.business[1].debug.nodePort=31311" \
             --set "applications.business[2].image.tag=${TAG}" \
+            --set "applications.business[2].debug.enabled=true" \
+            --set "applications.business[2].debug.nodePort=31312" \
             --set "applications.sagas[0].image.tag=${TAG}" \
             --set "applications.sagas[1].image.tag=${TAG}" \
             --set "applications.sagas[2].image.tag=${TAG}" \
@@ -332,29 +338,12 @@ jobs:
             kubectl get pods -n angzarr-test
             exit 1
           }
-          kubectl port-forward -n angzarr-test svc/player-aggregate 1310:1310 &
-          PF_PID=$!
-          echo "PF_PID=$PF_PID" >> $GITHUB_ENV
-          # Wait for port-forward to establish
-          for i in $(seq 1 10); do
-            if nc -z localhost 1310 2>/dev/null; then
-              echo "Port-forward to player-aggregate:1310 established"
-              break
-            fi
-            if [ "$i" = "10" ]; then
-              echo "WARNING: Port-forward may not be ready yet"
-            fi
-            sleep 1
-          done
-
       - name: Run acceptance tests
         env:
           PLAYER_URL: "localhost:1310"
+          TABLE_URL: "localhost:1311"
+          HAND_URL: "localhost:1312"
         run: just -f justfile.container test-acceptance
-
-      - name: Stop port-forward
-        if: always()
-        run: kill $PF_PID 2>/dev/null || true
 
       - name: Show logs on failure
         if: failure()
