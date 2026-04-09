@@ -32,6 +32,12 @@ struct CommandResult {
     /// gRPC status code for the error (if command was rejected).
     std::optional<grpc::StatusCode> error_code;
 
+    /// Projection results from synchronous projector execution.
+    int projection_count = 0;
+
+    /// Cascade error count (populated in CONTINUE/DEAD_LETTER modes).
+    int cascade_error_count = 0;
+
     bool succeeded() const { return event.has_value(); }
     bool failed() const { return error_message.has_value(); }
 };
@@ -114,9 +120,16 @@ class CommandClient {
     /// Deal community cards.
     virtual CommandResult deal_community_cards(int count) = 0;
 
+    /// Request a draw (discard and redraw cards).
+    virtual CommandResult request_draw(const std::string& player_root,
+                                       const std::vector<int32_t>& card_indices) = 0;
+
     /// Award the pot.
     virtual CommandResult award_pot(
         const std::vector<std::tuple<std::string, int64_t, std::string>>& awards) = 0;
+
+    /// Add chips to a player's stack between hands.
+    virtual CommandResult add_chips(const std::string& player_root, int64_t amount) = 0;
 };
 
 /// Factory: create the appropriate CommandClient based on environment.

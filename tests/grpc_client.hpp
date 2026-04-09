@@ -208,6 +208,16 @@ class GrpcClient : public CommandClient {
         return send_command("hand", cmd, *hand_stub_);
     }
 
+    CommandResult request_draw(const std::string& player_root,
+                               const std::vector<int32_t>& card_indices) override {
+        examples::RequestDraw cmd;
+        cmd.set_player_root(player_root);
+        for (int32_t idx : card_indices) {
+            cmd.add_card_indices(idx);
+        }
+        return send_command("hand", cmd, *hand_stub_);
+    }
+
     CommandResult award_pot(
         const std::vector<std::tuple<std::string, int64_t, std::string>>& awards) override {
         examples::AwardPot cmd;
@@ -218,6 +228,13 @@ class GrpcClient : public CommandClient {
             award->set_pot_type(pot_type);
         }
         return send_command("hand", cmd, *hand_stub_);
+    }
+
+    CommandResult add_chips(const std::string& player_root, int64_t amount) override {
+        examples::AddChips cmd;
+        cmd.set_player_root(player_root);
+        cmd.set_amount(amount);
+        return send_command("table", cmd, *table_stub_);
     }
 
    private:
@@ -264,6 +281,8 @@ class GrpcClient : public CommandClient {
             if (response.events().pages_size() > 0) {
                 result.event = response.events().pages(0).event();
             }
+            result.projection_count = response.projections_size();
+            result.cascade_error_count = response.cascade_errors_size();
         } else {
             result.error_message = status.error_message();
             result.error_code = status.error_code();
