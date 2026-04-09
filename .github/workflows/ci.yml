@@ -31,7 +31,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Install build dependencies
-        run: apt-get update && apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev libtclap-dev clang-tidy
+        run: apt-get update && apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev libtclap-dev clang-tidy ruby ruby-dev && gem install bundler --no-document
 
       - name: Build
         run: just -f justfile.container build
