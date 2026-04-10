@@ -498,7 +498,7 @@ GIVEN("^a hand at showdown with player \"([^\"]*)\" holding \"([^\"]*)\" and com
 GIVEN("^a showdown with player hands:$") {
     TABLE_PARAM(table);
     tests::g_context.showdown_hands.clear();
-    for (int i = 1; i < table.hashes().size(); ++i) {
+    for (size_t i = 0; i < table.hashes().size(); ++i) {
         auto row = table.hashes()[i];
         auto player = row.at("player");
         // Parse card notation (e.g., "As Ks" -> Card protos)
