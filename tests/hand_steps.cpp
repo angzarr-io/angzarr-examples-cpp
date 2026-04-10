@@ -515,7 +515,7 @@ GIVEN("^a showdown with player hands:$") {
                     case 'Q': card.set_rank(examples::QUEEN); break;
                     case 'J': card.set_rank(examples::JACK); break;
                     case 'T': card.set_rank(examples::TEN); break;
-                    default: card.set_rank(part[0] - '0'); break;
+                    default: card.set_rank(static_cast<examples::Rank>(part[0] - '0')); break;
                 }
                 switch (part[1]) {
                     case 's': card.set_suit(examples::SPADES); break;
