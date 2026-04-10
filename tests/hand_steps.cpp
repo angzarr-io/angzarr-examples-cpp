@@ -515,7 +515,7 @@ GIVEN("^a showdown with player hands:$") {
                     case 'Q': card.set_rank(examples::QUEEN); break;
                     case 'J': card.set_rank(examples::JACK); break;
                     case 'T': card.set_rank(examples::TEN); break;
-                    default: card.set_rank_value(part[0] - '0'); break;
+                    default: card.set_rank(part[0] - '0'); break;
                 }
                 switch (part[1]) {
                     case 's': card.set_suit(examples::SPADES); break;
@@ -791,9 +791,9 @@ WHEN("^hands are evaluated$") {
         std::map<int, int> suit_counts;
         std::vector<int> ranks;
         for (const auto& c : all_cards) {
-            rank_counts[c.rank_value()]++;
-            suit_counts[c.suit_value()]++;
-            ranks.push_back(c.rank_value());
+            rank_counts[static_cast<int>(c.rank())]++;
+            suit_counts[static_cast<int>(c.suit())]++;
+            ranks.push_back(static_cast<int>(c.rank()));
         }
         std::sort(ranks.begin(), ranks.end(), std::greater<>());
 
