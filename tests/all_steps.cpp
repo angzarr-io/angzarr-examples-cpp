@@ -10,4 +10,5 @@
 #include "saga_steps.cpp"
 #include "process_manager_steps.cpp"
 #include "projector_steps.cpp"
+#include "orchestration_steps.cpp"
 #include "common_steps.cpp"
