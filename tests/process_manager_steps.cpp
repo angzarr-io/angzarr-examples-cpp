@@ -800,29 +800,22 @@ THEN("^betting_phase is set to DRAW$") {
 
 THEN("^all players have bet_this_round reset to 0$") {
     ASSERT_TRUE(g_pm_state.process.has_value());
-    // Reset for new betting round
-    for (auto& p : g_pm_state.process->players) {
-        p.bet_this_round = 0;
-    }
     for (const auto& p : g_pm_state.process->players) {
-        ASSERT_EQ(p.bet_this_round, 0);
+        ASSERT_EQ(p.bet_this_round, 0)
+            << "Expected bet_this_round=0 for player at position " << p.position;
     }
 }
 
 THEN("^all players have has_acted reset to false$") {
     ASSERT_TRUE(g_pm_state.process.has_value());
-    // Reset for new betting round
-    for (auto& p : g_pm_state.process->players) {
-        p.has_acted = false;
-    }
     for (const auto& p : g_pm_state.process->players) {
-        ASSERT_FALSE(p.has_acted);
+        ASSERT_FALSE(p.has_acted)
+            << "Expected has_acted=false for player at position " << p.position;
     }
 }
 
 THEN("^current_bet is reset to 0$") {
     ASSERT_TRUE(g_pm_state.process.has_value());
-    g_pm_state.process->current_bet = 0;
     ASSERT_EQ(g_pm_state.process->current_bet, 0);
 }
 
