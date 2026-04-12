@@ -5,7 +5,7 @@ metadata:
 
 # Requires base angzarr infrastructure
 requires:
-  - path: ../../skaffold.yaml
+  - path: ../../core/main/skaffold.yaml
 
 build:
   tagPolicy:
@@ -18,28 +18,28 @@ build:
     concurrency: 1
   artifacts:
     - image: ghcr.io/angzarr-io/poker-cpp-player
-      context: ../..
+      context: .
       docker:
-        dockerfile: examples/cpp/Containerfile
+        dockerfile: Containerfile
         target: agg-player
 
     - image: ghcr.io/angzarr-io/poker-cpp-table
-      context: ../..
+      context: .
       docker:
-        dockerfile: examples/cpp/Containerfile
+        dockerfile: Containerfile
         target: agg-table
 
     - image: ghcr.io/angzarr-io/poker-cpp-hand
-      context: ../..
+      context: .
       docker:
-        dockerfile: examples/cpp/Containerfile
+        dockerfile: Containerfile
         target: agg-hand
 
 deploy:
   helm:
     releases:
       - name: poker-cpp
-        chartPath: ../../deploy/k8s/helm/angzarr
+        chartPath: ../../core/main/deploy/k8s/helm/angzarr
         namespace: angzarr
         createNamespace: true
         valuesFiles:
