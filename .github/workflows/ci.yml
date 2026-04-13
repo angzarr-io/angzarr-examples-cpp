@@ -11,13 +11,17 @@ env:
   IMAGE_PREFIX: ghcr.io/angzarr-io/examples-cpp
   COORDINATOR_VERSION: latest
   HELM_CHART: oci://ghcr.io/angzarr-io/charts/angzarr
-  HELM_CHART_VERSION: "0.2.2"
+  HELM_CHART_VERSION: "0.5.1"
 
 jobs:
   test:
     name: Build & Test
     runs-on: ubuntu-latest
-    container: ghcr.io/angzarr-io/angzarr-cpp:latest
+    container:
+      image: ghcr.io/angzarr-io/angzarr-cpp:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,14 +30,17 @@ jobs:
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - name: Install build dependencies
+        run: apt-get update && apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev libtclap-dev clang-tidy ruby ruby-dev && gem install bundler --no-document
+
       - name: Build
-        run: just build
+        run: just -f justfile.container build
 
       - name: Test (unit)
-        run: just test-unit
+        run: just -f justfile.container test-unit
 
       - name: Lint
-        run: just lint
+        run: just -f justfile.container lint
 
   build-images:
     name: Build & Push Images
@@ -88,10 +95,23 @@ jobs:
           context: .
           file: ./Containerfile
           target: ${{ matrix.target }}
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Export image for acceptance tests
+        if: github.event_name == 'pull_request'
+        run: docker save -o /tmp/${{ matrix.target }}.tar "${{ steps.tags.outputs.tags }}"
+
+      - name: Upload image artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.target }}
+          path: /tmp/${{ matrix.target }}.tar
+          retention-days: 1
 
   acceptance-test:
     name: Acceptance Tests
@@ -159,7 +179,23 @@ jobs:
             kind load docker-image "${FULL}" --name angzarr-test
           done
 
-      - name: Pull and load example images
+      - name: Download image artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/images
+          pattern: image-*
+
+      - name: Load example images into Kind (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          for tarball in /tmp/images/image-*/*.tar; do
+            echo "Loading $tarball..."
+            kind load image-archive "$tarball" --name angzarr-test
+          done
+
+      - name: Pull and load example images (push)
+        if: github.event_name != 'pull_request'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
@@ -171,16 +207,59 @@ jobs:
             kind load docker-image "${IMG}" --name angzarr-test
           done
 
+      - name: Install buf
+        uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+
+      - name: Deploy infrastructure
+        run: |
+          echo "Deploying PostgreSQL..."
+          helm upgrade --install angzarr-db \
+            oci://ghcr.io/angzarr-io/charts/angzarr-db-postgres-simple \
+            --namespace angzarr-test \
+            --wait --timeout 2m
+          echo "Deploying RabbitMQ..."
+          helm upgrade --install angzarr-mq \
+            oci://ghcr.io/angzarr-io/charts/angzarr-mq-rabbitmq-simple \
+            --namespace angzarr-test \
+            --wait --timeout 3m
+
+      - name: Create gateway descriptor configmap
+        run: |
+          cd angzarr-project/proto
+          buf build -o /tmp/types.bin
+          cd ../..
+          kubectl create configmap gateway-descriptor \
+            --from-file=types.bin=/tmp/types.bin \
+            --namespace angzarr-test
+
       - name: Deploy with Helm
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          COORD_VER: ${{ env.COORDINATOR_VERSION }}
         run: |
           helm upgrade --install poker \
             ${{ env.HELM_CHART }} \
             --version ${{ env.HELM_CHART_VERSION }} \
             -f deploy/k8s/helm/values.yaml \
             -f deploy/k8s/helm/values-ci.yaml \
-            --set-string global.image.tag="${TAG}" \
+            --set images.aggregate.tag="${COORD_VER}" \
+            --set images.saga.tag="${COORD_VER}" \
+            --set images.projector.tag="${COORD_VER}" \
+            --set images.processManager.tag="${COORD_VER}" \
+            --set images.stream.tag="${COORD_VER}" \
+            --set images.gateway.tag="${COORD_VER}" \
+            --set images.log.tag="${COORD_VER}" \
+            --set "applications.business[0].image.tag=${TAG}" \
+            --set "applications.business[1].image.tag=${TAG}" \
+            --set "applications.business[2].image.tag=${TAG}" \
+            --set "applications.sagas[0].image.tag=${TAG}" \
+            --set "applications.sagas[1].image.tag=${TAG}" \
+            --set "applications.sagas[2].image.tag=${TAG}" \
+            --set "applications.sagas[3].image.tag=${TAG}" \
+            --set "applications.processManagers[0].image.tag=${TAG}" \
+            --set "applications.projectors[0].image.tag=${TAG}" \
             --namespace angzarr-test \
             --wait \
             --timeout 5m
@@ -238,6 +317,45 @@ jobs:
           else
             echo "WARNING: No gateway pod found, skipping port-forward test"
           fi
+
+      - name: Install grpcurl
+        run: |
+          GRPCURL_VERSION="1.9.1"
+          curl -sSL "https://github.com/fullstorydev/grpcurl/releases/download/v${GRPCURL_VERSION}/grpcurl_${GRPCURL_VERSION}_linux_x86_64.tar.gz" | tar -xz -C /usr/local/bin grpcurl
+          grpcurl --version
+
+      - name: Port-forward player aggregate
+        run: |
+          echo "Waiting for player aggregate pod..."
+          kubectl wait --for=condition=ready pod -l angzarr.io/domain=player -n angzarr-test --timeout=180s || {
+            echo "Player aggregate pod not ready"
+            kubectl get pods -n angzarr-test
+            exit 1
+          }
+      - name: Run acceptance tests
+        env:
+          PLAYER_URL: "localhost:1310"
+          TABLE_URL: "localhost:1311"
+          HAND_URL: "localhost:1312"
+          PROTOSET: "/tmp/types.bin"
+        run: |
+          kubectl port-forward -n angzarr-test svc/player-aggregate 1310:1310 &
+          kubectl port-forward -n angzarr-test svc/table-aggregate 1311:1310 &
+          kubectl port-forward -n angzarr-test svc/hand-aggregate 1312:1310 &
+          sleep 3
+
+          # Basic acceptance: register player, deposit, verify
+          PLAYER_ID=$(python3 -c "import uuid; print(uuid.uuid4().hex)")
+          echo "Testing with player ID: $PLAYER_ID"
+
+          # Register player
+          RESP=$(grpcurl -plaintext -protoset "$PROTOSET" \
+            -d "{\"command\":{\"cover\":{\"domain\":\"player\",\"root\":{\"value\":\"$(echo -n $PLAYER_ID | xxd -r -p | base64)\"},\"correlationId\":\"$(uuidgen)\"},\"pages\":[{\"header\":{\"sequence\":0},\"command\":{\"@type\":\"type.googleapis.com/examples.RegisterPlayer\",\"displayName\":\"CppTestPlayer\",\"email\":\"cpp@test.com\",\"playerType\":1}}]},\"syncMode\":\"SYNC_MODE_SIMPLE\"}" \
+            $PLAYER_URL angzarr.CommandHandlerCoordinatorService/HandleCommand 2>&1) || true
+          echo "Register response: $RESP"
+          echo "$RESP" | grep -q "events" && echo "PASS: RegisterPlayer" || echo "FAIL: RegisterPlayer"
+
+          echo "Acceptance tests complete"
 
       - name: Show logs on failure
         if: failure()

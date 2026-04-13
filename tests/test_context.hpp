@@ -40,6 +40,18 @@ struct ScenarioContext {
     // Current sequence number for event pages
     int64_t next_sequence = 1;
 
+    // Showdown evaluation data
+    struct ShowdownHand {
+        std::vector<examples::Card> hole_cards;
+        std::vector<examples::Card> community_cards;
+    };
+    struct EvalResult {
+        examples::HandRankType rank_type;
+        int32_t score;
+    };
+    std::map<std::string, ShowdownHand> showdown_hands;
+    std::map<std::string, EvalResult> evaluation_results;
+
     /// Reset context for a new scenario.
     void reset() {
         event_pages.clear();
@@ -50,6 +62,8 @@ struct ScenarioContext {
         last_error.reset();
         last_error_code.reset();
         next_sequence = 1;
+        showdown_hands.clear();
+        evaluation_results.clear();
     }
 
     /// Add an event to the event history.

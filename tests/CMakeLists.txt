@@ -71,22 +71,8 @@ set(HAND_HANDLER_SOURCES
     ${CMAKE_SOURCE_DIR}/hand/agg/handlers/award_pot_handler.cpp
 )
 
-# Step definition sources - compiled as single unit to avoid __COUNTER__ collisions
-# between translation units (cucumber-cpp uses __COUNTER__ for unique class names)
-set(STEP_SOURCES
-    all_steps.cpp
-)
-
-# Create test executable
-add_executable(acceptance_tests
-    runner.cpp
-    ${STEP_SOURCES}
-    ${PLAYER_HANDLER_SOURCES}
-    ${TABLE_HANDLER_SOURCES}
-    ${HAND_HANDLER_SOURCES}
-)
-
-target_include_directories(acceptance_tests PRIVATE
+# Common include directories for test executables
+set(TEST_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/player/agg/src
     ${CMAKE_SOURCE_DIR}/player/agg/handlers
@@ -96,7 +82,8 @@ target_include_directories(acceptance_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/hand/agg/handlers
 )
 
-target_link_libraries(acceptance_tests PRIVATE
+# Common link libraries for test executables
+set(TEST_LINK_LIBS
     cucumber-cpp
     GTest::gtest
     GTest::gtest_main
@@ -110,16 +97,87 @@ target_link_libraries(acceptance_tests PRIVATE
     angzarr_proto
 )
 
+# ===========================================================================
+# Unit Tests - in-process handler calls via cucumber-cpp wire protocol
+# ===========================================================================
+
+# Step definition sources - compiled as single unit to avoid __COUNTER__ collisions
+# between translation units (cucumber-cpp uses __COUNTER__ for unique class names)
+set(UNIT_STEP_SOURCES
+    all_steps.cpp
+)
+
+add_executable(unit_tests
+    runner.cpp
+    ${UNIT_STEP_SOURCES}
+    ${PLAYER_HANDLER_SOURCES}
+    ${TABLE_HANDLER_SOURCES}
+    ${HAND_HANDLER_SOURCES}
+)
+
+target_include_directories(unit_tests PRIVATE ${TEST_INCLUDE_DIRS})
+target_link_libraries(unit_tests PRIVATE ${TEST_LINK_LIBS})
+
 # Disable -Werror=restrict for gtest headers which trigger false positives
 # in gtest type-util.h with GCC 12+ and certain optimization levels
-target_compile_options(acceptance_tests PRIVATE
-    -Wno-error=restrict
+target_compile_options(unit_tests PRIVATE -Wno-error=restrict)
+
+# Also build legacy target name for backward compatibility
+add_executable(acceptance_tests
+    runner.cpp
+    ${UNIT_STEP_SOURCES}
+    ${PLAYER_HANDLER_SOURCES}
+    ${TABLE_HANDLER_SOURCES}
+    ${HAND_HANDLER_SOURCES}
 )
+
+target_include_directories(acceptance_tests PRIVATE ${TEST_INCLUDE_DIRS})
+target_link_libraries(acceptance_tests PRIVATE ${TEST_LINK_LIBS})
+target_compile_options(acceptance_tests PRIVATE -Wno-error=restrict)
+
+# ===========================================================================
+# Gherkin Acceptance Tests - CommandClient abstraction (in-process or gRPC)
+# ===========================================================================
+
+# Acceptance step definitions use CommandClient interface
+set(ACCEPTANCE_STEP_SOURCES
+    all_acceptance_steps.cpp
+    command_client.cpp
+)
+
+add_executable(acceptance_runner
+    acceptance_runner.cpp
+    ${ACCEPTANCE_STEP_SOURCES}
+    ${PLAYER_HANDLER_SOURCES}
+    ${TABLE_HANDLER_SOURCES}
+    ${HAND_HANDLER_SOURCES}
+)
+
+target_include_directories(acceptance_runner PRIVATE ${TEST_INCLUDE_DIRS})
+target_link_libraries(acceptance_runner PRIVATE ${TEST_LINK_LIBS})
+target_compile_options(acceptance_runner PRIVATE -Wno-error=restrict)
 
 # Feature files location
 set(FEATURE_DIR "${CMAKE_SOURCE_DIR}/features")
+set(UNIT_FEATURE_DIR "${FEATURE_DIR}/unit")
+set(ACCEPTANCE_FEATURE_DIR "${FEATURE_DIR}/acceptance")
 
-# Add CTest integration with acceptance label
+# ===========================================================================
+# CTest integration
+# ===========================================================================
+
+# Unit tests (label: unit) - in-process handler calls
+add_test(
+    NAME unit_tests
+    COMMAND unit_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(unit_tests PROPERTIES
+    LABELS "unit"
+    ENVIRONMENT "CUCUMBER_FEATURES_DIR=${UNIT_FEATURE_DIR}"
+)
+
+# Legacy acceptance_tests target (label: acceptance) - same as unit_tests
 add_test(
     NAME acceptance_tests
     COMMAND acceptance_tests
@@ -130,10 +188,34 @@ set_tests_properties(acceptance_tests PROPERTIES
     ENVIRONMENT "CUCUMBER_FEATURES_DIR=${FEATURE_DIR}"
 )
 
-# Custom target for running acceptance tests
-add_custom_target(test-acceptance
-    COMMAND ${CMAKE_CTEST_COMMAND} -L acceptance --output-on-failure
-    DEPENDS acceptance_tests
+# Gherkin acceptance tests (label: gherkin-acceptance)
+# Uses CommandClient: PLAYER_URL -> gRPC, otherwise in-process
+add_test(
+    NAME gherkin_acceptance
+    COMMAND acceptance_runner
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(gherkin_acceptance PROPERTIES
+    LABELS "gherkin-acceptance"
+    ENVIRONMENT "CUCUMBER_FEATURES_DIR=${ACCEPTANCE_FEATURE_DIR}"
+)
+
+# ===========================================================================
+# Custom targets
+# ===========================================================================
+
+# Run unit tests
+add_custom_target(test-unit
+    COMMAND ${CMAKE_CTEST_COMMAND} -L unit --output-on-failure
+    DEPENDS unit_tests
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Running acceptance tests"
+    COMMENT "Running unit tests (in-process handlers)"
+)
+
+# Run acceptance tests via CommandClient
+add_custom_target(test-acceptance
+    COMMAND ${CMAKE_CTEST_COMMAND} -L gherkin-acceptance --output-on-failure
+    DEPENDS acceptance_runner
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running Gherkin acceptance tests via CommandClient"
 )

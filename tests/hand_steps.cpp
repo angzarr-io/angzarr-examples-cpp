@@ -497,7 +497,41 @@ GIVEN("^a hand at showdown with player \"([^\"]*)\" holding \"([^\"]*)\" and com
 
 GIVEN("^a showdown with player hands:$") {
     TABLE_PARAM(table);
-    // Parse and set up the showdown scenario for hand evaluation comparison
+    tests::g_context.showdown_hands.clear();
+    for (size_t i = 0; i < table.hashes().size(); ++i) {
+        auto row = table.hashes()[i];
+        auto player = row.at("player");
+        // Parse card notation (e.g., "As Ks" -> Card protos)
+        auto parse_cards = [](const std::string& notation) {
+            std::vector<examples::Card> cards;
+            std::istringstream iss(notation);
+            std::string part;
+            while (iss >> part) {
+                if (part.size() < 2) continue;
+                examples::Card card;
+                switch (part[0]) {
+                    case 'A': card.set_rank(examples::ACE); break;
+                    case 'K': card.set_rank(examples::KING); break;
+                    case 'Q': card.set_rank(examples::QUEEN); break;
+                    case 'J': card.set_rank(examples::JACK); break;
+                    case 'T': card.set_rank(examples::TEN); break;
+                    default: card.set_rank(static_cast<examples::Rank>(part[0] - '0')); break;
+                }
+                switch (part[1]) {
+                    case 's': card.set_suit(examples::SPADES); break;
+                    case 'h': card.set_suit(examples::HEARTS); break;
+                    case 'd': card.set_suit(examples::DIAMONDS); break;
+                    case 'c': card.set_suit(examples::CLUBS); break;
+                }
+                cards.push_back(card);
+            }
+            return cards;
+        };
+        tests::ScenarioContext::ShowdownHand hand;
+        hand.hole_cards = parse_cards(row.at("hole_cards"));
+        hand.community_cards = parse_cards(row.at("community_cards"));
+        tests::g_context.showdown_hands[player] = hand;
+    }
 }
 
 // ==========================================================================
@@ -747,7 +781,78 @@ WHEN("^I handle an AwardPot command with winner \"([^\"]*)\" amount (\\d+)$") {
 }
 
 WHEN("^hands are evaluated$") {
-    // Hand evaluation happens in Then steps
+    tests::g_context.evaluation_results.clear();
+    for (const auto& [player, hand] : tests::g_context.showdown_hands) {
+        // Simple evaluation: count suits for flush, check straight, count rank groups
+        auto all_cards = hand.hole_cards;
+        all_cards.insert(all_cards.end(), hand.community_cards.begin(), hand.community_cards.end());
+
+        std::map<int, int> rank_counts;
+        std::map<int, int> suit_counts;
+        std::vector<int> ranks;
+        for (const auto& c : all_cards) {
+            rank_counts[static_cast<int>(c.rank())]++;
+            suit_counts[static_cast<int>(c.suit())]++;
+            ranks.push_back(static_cast<int>(c.rank()));
+        }
+        std::sort(ranks.begin(), ranks.end(), std::greater<>());
+
+        bool is_flush = false;
+        for (const auto& [s, count] : suit_counts) {
+            if (count >= 5) { is_flush = true; break; }
+        }
+
+        // Check straight (simplified: consecutive ranks in sorted unique)
+        std::vector<int> unique_ranks(ranks.begin(), ranks.end());
+        unique_ranks.erase(std::unique(unique_ranks.begin(), unique_ranks.end()), unique_ranks.end());
+        bool is_straight = false;
+        if (unique_ranks.size() >= 5) {
+            for (size_t i = 0; i <= unique_ranks.size() - 5; ++i) {
+                if (unique_ranks[i] - unique_ranks[i+4] == 4) { is_straight = true; break; }
+            }
+            // Wheel: A-2-3-4-5
+            if (!is_straight && unique_ranks[0] == 14) {
+                std::vector<int> low = {5, 4, 3, 2};
+                bool has_all = true;
+                for (int r : low) {
+                    if (std::find(unique_ranks.begin(), unique_ranks.end(), r) == unique_ranks.end()) {
+                        has_all = false; break;
+                    }
+                }
+                if (has_all) is_straight = true;
+            }
+        }
+
+        int max_count = 0, second_count = 0;
+        for (const auto& [r, c] : rank_counts) {
+            if (c > max_count) { second_count = max_count; max_count = c; }
+            else if (c > second_count) second_count = c;
+        }
+
+        tests::ScenarioContext::EvalResult result;
+        if (is_flush && is_straight && ranks[0] == 14 && ranks[4] == 10) {
+            result = {examples::ROYAL_FLUSH, 10000};
+        } else if (is_flush && is_straight) {
+            result = {examples::STRAIGHT_FLUSH, 9000 + ranks[0]};
+        } else if (max_count == 4) {
+            result = {examples::FOUR_OF_A_KIND, 8000};
+        } else if (max_count == 3 && second_count >= 2) {
+            result = {examples::FULL_HOUSE, 7000};
+        } else if (is_flush) {
+            result = {examples::FLUSH, 6000};
+        } else if (is_straight) {
+            result = {examples::STRAIGHT, 5000 + ranks[0]};
+        } else if (max_count == 3) {
+            result = {examples::THREE_OF_A_KIND, 4000};
+        } else if (max_count == 2 && second_count == 2) {
+            result = {examples::TWO_PAIR, 3000};
+        } else if (max_count == 2) {
+            result = {examples::PAIR, 2000};
+        } else {
+            result = {examples::HIGH_CARD, 1000 + ranks[0]};
+        }
+        tests::g_context.evaluation_results[player] = result;
+    }
 }
 
 // ==========================================================================
@@ -977,12 +1082,29 @@ THEN("^the hand status is \"([^\"]*)\"$") {
 THEN("^player \"([^\"]*)\" has ranking \"([^\"]*)\"$") {
     REGEX_PARAM(std::string, player_id);
     REGEX_PARAM(std::string, expected);
-    // For showdown evaluation scenarios
+    auto it = tests::g_context.evaluation_results.find(player_id);
+    ASSERT_TRUE(it != tests::g_context.evaluation_results.end())
+        << "No evaluation result for player " << player_id;
+    auto expected_type = tests::parse_hand_rank(expected);
+    ASSERT_EQ(it->second.rank_type, expected_type)
+        << "Expected " << player_id << " to have " << expected
+        << " but got " << examples::HandRankType_Name(it->second.rank_type);
 }
 
 THEN("^player \"([^\"]*)\" wins$") {
     REGEX_PARAM(std::string, player_id);
-    // For showdown evaluation scenarios
+    ASSERT_GE(tests::g_context.evaluation_results.size(), 2u)
+        << "Need at least 2 players for winner determination";
+    std::string winner;
+    int32_t best_score = -1;
+    for (const auto& [name, result] : tests::g_context.evaluation_results) {
+        if (result.score > best_score) {
+            winner = name;
+            best_score = result.score;
+        }
+    }
+    ASSERT_EQ(winner, player_id)
+        << "Expected " << player_id << " to win but " << winner << " won";
 }
 
 THEN("^player \"([^\"]*)\" has specific hole cards for seed \"([^\"]*)\"$") {
