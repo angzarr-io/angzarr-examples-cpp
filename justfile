@@ -62,3 +62,7 @@ lint:
 
 clean:
     rm -rf "{{ROOT}}/build"
+
+# Auto-format code
+fmt-fix:
+    just _container fmt-fix
