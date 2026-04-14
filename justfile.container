@@ -86,3 +86,7 @@ lint:
 # Clean build artifacts
 clean:
     rm -rf {{BUILD_DIR}}
+
+# Auto-format code (clang-format, Google style)
+fmt-fix:
+    find . -name "*.cpp" -o -name "*.hpp" | grep -v build/ | grep -v angzarr- | xargs clang-format -i --style=Google
