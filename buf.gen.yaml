@@ -1,7 +1,8 @@
 version: v2
 inputs:
-  - module: buf.build/angzarr/angzarr
-  - directory: proto  # Local poker domain protos
+  - directory: angzarr-project/proto
+    exclude_paths:
+      - angzarr-project/proto/examples/ai_sidecar.proto
 plugins:
   - remote: buf.build/protocolbuffers/cpp
     out: proto
