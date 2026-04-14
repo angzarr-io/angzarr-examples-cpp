@@ -19,6 +19,8 @@ proto-gen:
     mkdir -p {{PROTO_DIR}}/examples
     cp _proto_export/examples/*.proto {{PROTO_DIR}}/examples/
     rm -f {{PROTO_DIR}}/examples/ai_sidecar.proto
+    mkdir -p {{PROTO_DIR}}/google/api
+    cp _proto_export/google/api/*.proto {{PROTO_DIR}}/google/api/
     rm -rf _proto_export
 
 # Configure and build all C++ components
