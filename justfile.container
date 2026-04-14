@@ -14,6 +14,7 @@ default:
 # Export proto files: core and examples from angzarr-project submodule
 proto-gen:
     rm -rf {{PROTO_DIR}}
+    mkdir -p $(dirname {{PROTO_DIR}})
     buf export angzarr-project/proto -o _proto_export
     mv _proto_export {{PROTO_DIR}}
     rm -f {{PROTO_DIR}}/examples/ai_sidecar.proto
