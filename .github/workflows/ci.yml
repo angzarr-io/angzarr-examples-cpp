@@ -38,7 +38,8 @@ jobs:
             libtclap-dev clang-tidy ruby ruby-dev curl gnupg
           gem install bundler --no-document
           curl -1sLf 'https://dl.cloudsmith.io/public/mull-project/mull-stable/setup.deb.sh' | bash
-          apt-get update && apt-get install -y mull-18
+          CLANG_VER=$(clang --version 2>/dev/null | head -1 | grep -oP '\d+' | head -1 || echo "16")
+          apt-get update && apt-get install -y "mull-${CLANG_VER}" || apt-get install -y mull || echo "WARNING: mull not available for clang-${CLANG_VER}"
 
       - name: Build
         run: just -f justfile.container build

@@ -22,9 +22,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && gem install bundler --no-document
 
-# Install Mull mutation testing (LLVM-based)
+# Install Mull mutation testing (LLVM-based, version matches clang)
 RUN curl -1sLf 'https://dl.cloudsmith.io/public/mull-project/mull-stable/setup.deb.sh' | bash \
-    && apt-get update && apt-get install -y --no-install-recommends mull-18 \
+    && CLANG_VER=$(clang --version 2>/dev/null | head -1 | grep -oP '\d+' | head -1 || echo "16") \
+    && apt-get update && apt-get install -y --no-install-recommends "mull-${CLANG_VER}" \
     && rm -rf /var/lib/apt/lists/*
 
 # Mark as devcontainer for justfile detection
