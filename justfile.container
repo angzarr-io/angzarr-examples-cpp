@@ -19,9 +19,9 @@ proto-gen:
     mv _proto_export {{PROTO_DIR}}
     rm -f {{PROTO_DIR}}/examples/ai_sidecar.proto
 
-# Configure and build all C++ components
+# Configure and build all C++ components (use gcc for cucumber-cpp compat)
 build: proto-gen
-    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
+    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
     cmake --build {{BUILD_DIR}} -j$(nproc)
 
 # Run unit tests (in-process handlers via cucumber-cpp wire protocol)
