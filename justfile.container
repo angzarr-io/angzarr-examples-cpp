@@ -94,6 +94,13 @@ mutation-test:
         echo "ERROR: mull-runner not found. Install mull-17 for your platform."
         exit 1
     fi
+    # Verify mull actually works (glibc compatibility check)
+    if ! $MULL --version >/dev/null 2>&1; then
+        echo "ERROR: mull-runner installed but cannot run (likely glibc mismatch)."
+        echo "Container base image needs Ubuntu 24.04+ or Debian trixie for Mull 0.33.0."
+        echo "Update ghcr.io/angzarr-io/angzarr-cpp base image."
+        exit 1
+    fi
     echo "Running Mull mutation testing..."
     cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON \
         -DCMAKE_CXX_COMPILER=clang++-17 \
