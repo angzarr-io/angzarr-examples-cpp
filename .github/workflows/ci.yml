@@ -37,19 +37,10 @@ jobs:
             libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev \
             libtclap-dev clang-tidy ruby ruby-dev curl gnupg
           gem install bundler --no-document
-          # Install Mull mutation testing
-          # Detect clang version (grep -oP may not be available, use sed)
-          CLANG_VER=$(clang --version 2>/dev/null | head -1 | sed -n 's/.*version \([0-9]*\).*/\1/p')
-          CLANG_VER=${CLANG_VER:-16}
-          echo "Detected clang version: ${CLANG_VER}"
-          # Mull only has Ubuntu packages — install via dpkg with forced deps on Debian
-          MULL_URL="https://github.com/mull-project/mull/releases/download/0.24.0/Mull-0.24.0-LLVM-${CLANG_VER}-ubuntu-22.04.deb"
-          echo "Downloading mull from: ${MULL_URL}"
-          if curl -fsL -o /tmp/mull.deb "${MULL_URL}"; then
-            dpkg --force-depends -i /tmp/mull.deb || echo "WARNING: dpkg install failed"
-          else
-            echo "WARNING: Mull .deb not available for LLVM ${CLANG_VER}"
-          fi
+          # Install Mull mutation testing (native Debian 13 package for LLVM 17)
+          apt-get install -y clang-17
+          MULL_URL="https://github.com/mull-project/mull/releases/download/0.33.0/Mull-17-0.33.0-LLVM-17.0.6-debian-amd64-13.deb"
+          curl -fsL -o /tmp/mull.deb "${MULL_URL}" && dpkg -i /tmp/mull.deb
 
       - name: Build
         run: just -f justfile.container build
