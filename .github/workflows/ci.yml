@@ -35,8 +35,10 @@ jobs:
           apt-get update
           apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev \
             libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev \
-            libtclap-dev clang-tidy ruby ruby-dev
+            libtclap-dev clang-tidy ruby ruby-dev curl gnupg
           gem install bundler --no-document
+          curl -1sLf 'https://dl.cloudsmith.io/public/mull-project/mull-stable/setup.deb.sh' | bash
+          apt-get update && apt-get install -y mull-18
 
       - name: Build
         run: just -f justfile.container build
@@ -49,7 +51,6 @@ jobs:
 
       - name: Mutation Testing (Mull)
         run: just -f justfile.container mutation-test
-        continue-on-error: true
 
   build-images:
     name: Build & Push Images

@@ -4,7 +4,7 @@
 ARG CPP_IMAGE=ghcr.io/angzarr-io/angzarr-cpp:latest
 FROM ${CPP_IMAGE}
 
-# Install dependencies for cucumber-cpp BDD tests
+# Install dependencies for cucumber-cpp BDD tests and Mull mutation testing
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-regex-dev \
@@ -17,8 +17,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libtclap-dev \
     ruby \
     ruby-dev \
+    curl \
+    gnupg \
     && rm -rf /var/lib/apt/lists/* \
     && gem install bundler --no-document
+
+# Install Mull mutation testing (LLVM-based)
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/mull-project/mull-stable/setup.deb.sh' | bash \
+    && apt-get update && apt-get install -y --no-install-recommends mull-18 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Mark as devcontainer for justfile detection
 ENV DEVCONTAINER=true

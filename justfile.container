@@ -85,37 +85,19 @@ lint:
 clean:
     rm -rf {{BUILD_DIR}}
 
-# Run mutation testing via Mull (LLVM mutation testing)
-# Mull compiles with mutations embedded, then runs tests to detect them.
-# Falls back to coverage analysis if mull is not available.
+# Run Mull mutation testing on unit test binary
 mutation-test:
     #!/usr/bin/env bash
     set -euo pipefail
-    if command -v mull-runner-18 &>/dev/null || command -v mull-runner &>/dev/null; then
-        MULL=$(command -v mull-runner-18 || command -v mull-runner)
-        echo "Running Mull mutation testing..."
-        cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON \
-            -DCMAKE_CXX_FLAGS="-fpass-plugin=$($MULL --print-plugin-path) -g -grecord-command-line"
-        cmake --build {{BUILD_DIR}} -j$(nproc) --target unit_tests
-        $MULL {{BUILD_DIR}}/tests/unit_tests \
-            --reporters Elements \
-            --report-dir {{BUILD_DIR}}/mutation-report
-        echo "Mutation report: {{BUILD_DIR}}/mutation-report/"
-    else
-        echo "WARNING: Mull not installed. Install via: apt-get install mull-18"
-        echo "Falling back to line coverage analysis..."
-        cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON \
-            -DCMAKE_CXX_FLAGS="--coverage" -DCMAKE_EXE_LINKER_FLAGS="--coverage"
-        cmake --build {{BUILD_DIR}} -j$(nproc) --target unit_tests
-        ./{{BUILD_DIR}}/tests/unit_tests -p 3902 &
-        WIRE_PID=$!
-        sleep 1
-        cd features && bundle exec cucumber --require step_definitions --format progress unit/ || true
-        kill $WIRE_PID 2>/dev/null || true
-        cd ..
-        gcov -b {{BUILD_DIR}}/CMakeFiles/angzarr_proto.dir/generated/ 2>/dev/null || true
-        echo "Coverage analysis complete (mutation testing requires mull)"
-    fi
+    MULL=$(command -v mull-runner-18 || command -v mull-runner)
+    echo "Running Mull mutation testing..."
+    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON \
+        -DCMAKE_CXX_FLAGS="-fpass-plugin=$($MULL --print-plugin-path) -g -grecord-command-line"
+    cmake --build {{BUILD_DIR}} -j$(nproc) --target unit_tests
+    $MULL {{BUILD_DIR}}/tests/unit_tests \
+        --reporters Elements \
+        --report-dir {{BUILD_DIR}}/mutation-report
+    echo "Mutation report: {{BUILD_DIR}}/mutation-report/"
 
 # Auto-format code (clang-format, Google style)
 fmt-fix:
