@@ -1,0 +1,38 @@
+name: Build C++ Base Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'build/images/Containerfile.cpp-base'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/angzarr-io/angzarr-cpp
+
+jobs:
+  build:
+    name: Build & Push Base Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }}:latest \
+            -f build/images/Containerfile.cpp-base .
+          docker push ${{ env.IMAGE_NAME }}:latest
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          docker tag ${{ env.IMAGE_NAME }}:latest ${{ env.IMAGE_NAME }}:${SHORT_SHA}
+          docker push ${{ env.IMAGE_NAME }}:${SHORT_SHA}

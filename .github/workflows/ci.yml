@@ -30,20 +30,9 @@ jobs:
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Install build dependencies
+      - name: Install cucumber gems
         run: |
-          apt-get update
-          apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev \
-            libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev \
-            libtclap-dev clang-tidy ruby ruby-dev curl gnupg
-          gem install bundler --no-document
-          # Install LLVM 17 + Mull mutation testing (native Debian 13 package)
-          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm.gpg
-          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-17 main" > /etc/apt/sources.list.d/llvm-17.list
-          apt-get update
-          apt-get install -y clang-17
-          MULL_URL="https://github.com/mull-project/mull/releases/download/0.33.0/Mull-17-0.33.0-LLVM-17.0.6-debian-amd64-13.deb"
-          curl -fsL -o /tmp/mull.deb "${MULL_URL}" && dpkg -i /tmp/mull.deb
+          cd features && bundle install --quiet 2>/dev/null || true
 
       - name: Build
         run: just -f justfile.container build

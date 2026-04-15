@@ -1,0 +1,79 @@
+# C++ base image for angzarr examples and client development
+#
+# Based on Ubuntu 24.04 for:
+# - Modern gRPC with CMake config (libgrpc++-dev)
+# - Mull mutation testing compatibility (glibc 2.39+)
+# - LLVM 17 toolchain
+#
+# Build: podman build -t ghcr.io/angzarr-io/angzarr-cpp:latest -f Containerfile.cpp-base .
+# Push:  podman push ghcr.io/angzarr-io/angzarr-cpp:latest
+
+FROM docker.io/library/ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Core build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    ninja-build \
+    pkg-config \
+    git \
+    curl \
+    gnupg \
+    ca-certificates \
+    # C++ toolchain
+    clang-17 \
+    clang-tidy \
+    clang-format \
+    lld \
+    # gRPC + protobuf (with CMake config)
+    libprotobuf-dev \
+    protobuf-compiler \
+    libgrpc++-dev \
+    protobuf-compiler-grpc \
+    # Testing
+    libgtest-dev \
+    libgmock-dev \
+    # Dependencies
+    libabsl-dev \
+    libssl-dev \
+    libc-ares-dev \
+    zlib1g-dev \
+    libre2-dev \
+    # Boost (for cucumber-cpp)
+    libboost-regex-dev \
+    libboost-filesystem-dev \
+    libboost-system-dev \
+    libboost-program-options-dev \
+    libboost-thread-dev \
+    # Other deps
+    nlohmann-json3-dev \
+    libasio-dev \
+    libtclap-dev \
+    # Ruby (for cucumber BDD tests)
+    ruby \
+    ruby-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && gem install bundler --no-document
+
+# Install just (command runner)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+# Install buf (protobuf tooling)
+ARG BUF_VERSION=1.47.2
+RUN curl -sSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-$(uname -m)" -o /usr/local/bin/buf \
+    && chmod +x /usr/local/bin/buf
+
+# Install Mull mutation testing (LLVM 17)
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/mull-project/mull-stable/setup.deb.sh' | bash \
+    && apt-get update && apt-get install -y --no-install-recommends mull-17 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set clang-17 as default
+RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100 \
+    && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 100 \
+    && update-alternatives --install /usr/bin/cc cc /usr/bin/clang-17 100 \
+    && update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-17 100
+
+WORKDIR /workspace
