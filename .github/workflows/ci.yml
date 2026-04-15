@@ -37,18 +37,14 @@ jobs:
             libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev \
             libtclap-dev clang-tidy ruby ruby-dev curl gnupg
           gem install bundler --no-document
-          # Install Mull mutation testing
+          # Install Mull mutation testing (requires matching LLVM version)
           CLANG_VER=$(clang --version 2>/dev/null | head -1 | grep -oP '\d+' | head -1 || echo "16")
           echo "Detected clang version: ${CLANG_VER}"
-          # Try apt repo first, then Ubuntu release binary as fallback
           curl -1sLf 'https://dl.cloudsmith.io/public/mull-project/mull-stable/setup.deb.sh' | bash || true
           apt-get update
-          if ! apt-get install -y "mull-${CLANG_VER}" 2>/dev/null; then
-            echo "apt install failed — trying Ubuntu .deb release..."
-            curl -sL -o /tmp/mull.deb \
-              "https://github.com/mull-project/mull/releases/download/0.24.0/Mull-0.24.0-LLVM-${CLANG_VER}-ubuntu-22.04.deb" \
-              && dpkg --force-depends -i /tmp/mull.deb || echo "Mull install failed — mutation testing will be skipped"
-          fi
+          apt-get install -y "mull-${CLANG_VER}" 2>/dev/null \
+            || dpkg --force-depends -i <(curl -sL "https://github.com/mull-project/mull/releases/download/0.24.0/Mull-0.24.0-LLVM-${CLANG_VER}-ubuntu-22.04.deb") 2>/dev/null \
+            || { echo "ERROR: Mull not available for clang-${CLANG_VER}. Add mull to container image."; exit 1; }
 
       - name: Build
         run: just -f justfile.container build
