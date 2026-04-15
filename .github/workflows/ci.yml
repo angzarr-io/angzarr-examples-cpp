@@ -29,9 +29,10 @@ jobs:
             libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev \
             libtclap-dev clang clang-tidy ruby ruby-dev curl gnupg cmake ninja-build \
             libprotobuf-dev protobuf-compiler libgrpc++-dev protobuf-compiler-grpc \
-            libgtest-dev pkg-config libabsl-dev libssl-dev libcares-dev zlib1g-dev libre2-dev \
-            just
+            libgtest-dev pkg-config libabsl-dev libssl-dev libc-ares-dev zlib1g-dev libre2-dev
           sudo gem install bundler --no-document
+          # Install just (not in Ubuntu repos)
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sudo bash -s -- --to /usr/local/bin
           # Install Mull mutation testing (Ubuntu 22.04 has packages)
           CLANG_VER=$(clang --version 2>/dev/null | head -1 | grep -oP '\d+' | head -1 || echo "14")
           echo "Detected clang version: ${CLANG_VER}"
