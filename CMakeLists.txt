@@ -89,6 +89,8 @@ add_subdirectory(hand/saga-table)
 add_subdirectory(hand/saga-player)
 add_subdirectory(hand-flow)
 add_subdirectory(prj-output)
+add_subdirectory(tournament/agg)
+add_subdirectory(hand/upc)
 
 # OO-style examples (disabled - use functional style instead)
 # add_subdirectory(table/saga-hand-oo)
