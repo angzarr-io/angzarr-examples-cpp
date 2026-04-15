@@ -90,7 +90,11 @@ mutation-test:
     #!/usr/bin/env bash
     set -euo pipefail
     CLANG_VER=$(clang --version 2>/dev/null | head -1 | grep -oP '\d+' | head -1 || echo "16")
-    MULL=$(command -v "mull-runner-${CLANG_VER}" || command -v mull-runner)
+    MULL=$(command -v "mull-runner-${CLANG_VER}" 2>/dev/null || command -v mull-runner 2>/dev/null || true)
+    if [ -z "$MULL" ]; then
+        echo "ERROR: mull-runner not found. Install mull-${CLANG_VER} for your platform."
+        exit 1
+    fi
     echo "Running Mull mutation testing..."
     cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON \
         -DCMAKE_CXX_FLAGS="-fpass-plugin=$($MULL --print-plugin-path) -g -grecord-command-line"
