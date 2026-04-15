@@ -100,8 +100,8 @@ mutation-test:
         -DCMAKE_C_COMPILER=clang-17 \
         -DCMAKE_CXX_COMPILER=clang++-17 \
         -DCMAKE_CXX_FLAGS="-g -grecord-command-line -w"
-    cmake --build {{BUILD_DIR}}-mull -j$(nproc) --target unit_tests
-    $MULL {{BUILD_DIR}}-mull/tests/unit_tests
+    cmake --build {{BUILD_DIR}}-mull -j$(nproc) --target mutation_tests
+    $MULL {{BUILD_DIR}}-mull/tests/mutation_tests
     echo "Mutation testing complete."
 
 # Auto-format code (clang-format, Google style)

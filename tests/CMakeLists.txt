@@ -203,6 +203,24 @@ set_tests_properties(gherkin_acceptance PROPERTIES
 )
 
 # ===========================================================================
+# Mutation test binary (standalone gtest, no cucumber wire protocol)
+# ===========================================================================
+
+add_executable(mutation_tests
+    mutation_test.cpp
+    ${PLAYER_HANDLER_SOURCES}
+)
+
+target_include_directories(mutation_tests PRIVATE ${TEST_INCLUDE_DIRS})
+target_link_libraries(mutation_tests PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    angzarr_client
+    angzarr_proto
+)
+target_compile_options(mutation_tests PRIVATE -Wno-error=restrict)
+
+# ===========================================================================
 # Custom targets
 # ===========================================================================
 
