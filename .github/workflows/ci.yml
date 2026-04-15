@@ -16,32 +16,35 @@ env:
 jobs:
   test:
     name: Build & Test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/angzarr-io/angzarr-cpp:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev \
+          apt-get update
+          apt-get install -y libboost-regex-dev libboost-filesystem-dev libboost-system-dev \
             libboost-program-options-dev libboost-thread-dev nlohmann-json3-dev libasio-dev \
-            libtclap-dev clang clang-tidy ruby ruby-dev curl gnupg cmake ninja-build \
-            libprotobuf-dev protobuf-compiler libgrpc++-dev protobuf-compiler-grpc \
-            libgtest-dev pkg-config libabsl-dev libssl-dev libc-ares-dev zlib1g-dev libre2-dev
-          sudo gem install bundler --no-document
-          # Install just (not in Ubuntu repos)
-          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sudo bash -s -- --to /usr/local/bin
-          # Install buf (protobuf tooling)
-          BUF_VERSION="1.47.2"
-          curl -sSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-$(uname -s)-$(uname -m)" -o /tmp/buf
-          sudo install /tmp/buf /usr/local/bin/buf
-          # Install Mull mutation testing (Ubuntu 22.04 has packages)
-          CLANG_VER=$(clang --version 2>/dev/null | head -1 | grep -oP '\d+' | head -1 || echo "14")
+            libtclap-dev clang-tidy ruby ruby-dev curl gnupg
+          gem install bundler --no-document
+          # Install Mull mutation testing
+          CLANG_VER=$(clang --version 2>/dev/null | head -1 | grep -oP '\d+' | head -1 || echo "16")
           echo "Detected clang version: ${CLANG_VER}"
-          curl -1sLf 'https://dl.cloudsmith.io/public/mull-project/mull-stable/setup.deb.sh' | sudo bash
-          sudo apt-get update && sudo apt-get install -y "mull-${CLANG_VER}"
+          # Mull only has Ubuntu packages — try to install via dpkg with forced deps
+          curl -sL -o /tmp/mull.deb \
+            "https://github.com/mull-project/mull/releases/download/0.24.0/Mull-0.24.0-LLVM-${CLANG_VER}-ubuntu-22.04.deb" \
+            && dpkg --force-depends -i /tmp/mull.deb \
+            || echo "WARNING: Mull install failed for clang-${CLANG_VER}"
 
       - name: Build
         run: just -f justfile.container build
