@@ -7,7 +7,7 @@ namespace hand {
 namespace handlers {
 
 /// Handle PlayerAction command.
-examples::ActionTaken handle_action(const examples::PlayerAction& cmd, const HandState& state);
+examples::ActionTaken handle_player_action(const examples::PlayerAction& cmd, const HandState& state);
 
 }  // namespace handlers
 }  // namespace hand

@@ -7,7 +7,7 @@ namespace table {
 namespace handlers {
 
 /// Handle JoinTable command.
-examples::PlayerJoined handle_join(const examples::JoinTable& cmd, const TableState& state);
+examples::PlayerJoined handle_join_table(const examples::JoinTable& cmd, const TableState& state);
 
 }  // namespace handlers
 }  // namespace table

@@ -19,7 +19,7 @@ std::string bytes_to_hex(const std::string& bytes) {
 }
 }  // anonymous namespace
 
-examples::FundsReleased handle_release(const examples::ReleaseFunds& cmd,
+examples::FundsReleased handle_release_funds(const examples::ReleaseFunds& cmd,
                                        const PlayerState& state) {
     // Guard
     if (!state.exists()) {

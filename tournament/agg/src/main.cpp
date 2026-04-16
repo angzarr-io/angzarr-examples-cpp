@@ -36,7 +36,7 @@ std::string bytes_to_hex(const std::string& bytes) {
 
 // Handler functions following guard/validate/compute pattern
 
-examples::TournamentCreated handle_create(
+examples::TournamentCreated handle_create_tournament(
     const examples::CreateTournament& cmd,
     const tournament::TournamentState& state,
     int seq
@@ -62,7 +62,7 @@ examples::TournamentCreated handle_create(
     return event;
 }
 
-examples::RegistrationOpened handle_open_registration(
+examples::RegistrationOpened handle_open_registration_tournament(
     const examples::OpenRegistration&,
     const tournament::TournamentState& state,
     int
@@ -76,7 +76,7 @@ examples::RegistrationOpened handle_open_registration(
     return event;
 }
 
-examples::RegistrationClosed handle_close_registration(
+examples::RegistrationClosed handle_close_registration_tournament(
     const examples::CloseRegistration&,
     const tournament::TournamentState& state,
     int
@@ -137,7 +137,7 @@ angzarr::EventBook handle_enroll_player_full(
     return angzarr::helpers::new_event_book(event, seq);
 }
 
-examples::BlindLevelAdvanced handle_advance_blind(
+examples::BlindLevelAdvanced handle_advance_blind_level(
     const examples::AdvanceBlindLevel&,
     const tournament::TournamentState& state,
     int
@@ -167,7 +167,7 @@ examples::BlindLevelAdvanced handle_advance_blind(
     return event;
 }
 
-examples::PlayerEliminated handle_eliminate(
+examples::PlayerEliminated handle_eliminate_player(
     const examples::EliminatePlayer& cmd,
     const tournament::TournamentState& state,
     int
@@ -184,7 +184,7 @@ examples::PlayerEliminated handle_eliminate(
     return event;
 }
 
-examples::TournamentPaused handle_pause(
+examples::TournamentPaused handle_pause_tournament(
     const examples::PauseTournament& cmd,
     const tournament::TournamentState& state,
     int
@@ -197,7 +197,7 @@ examples::TournamentPaused handle_pause(
     return event;
 }
 
-examples::TournamentResumed handle_resume(
+examples::TournamentResumed handle_resume_tournament(
     const examples::ResumeTournament&,
     const tournament::TournamentState& state,
     int
@@ -224,13 +224,13 @@ int main(int argc, char** argv) {
     };
 
     auto router = angzarr::CommandRouter<tournament::TournamentState>(TOURNAMENT_DOMAIN, state_rebuilder)
-        .on<examples::CreateTournament, examples::TournamentCreated>(handle_create)
-        .on<examples::OpenRegistration, examples::RegistrationOpened>(handle_open_registration)
-        .on<examples::CloseRegistration, examples::RegistrationClosed>(handle_close_registration)
-        .on<examples::AdvanceBlindLevel, examples::BlindLevelAdvanced>(handle_advance_blind)
-        .on<examples::EliminatePlayer, examples::PlayerEliminated>(handle_eliminate)
-        .on<examples::PauseTournament, examples::TournamentPaused>(handle_pause)
-        .on<examples::ResumeTournament, examples::TournamentResumed>(handle_resume);
+        .on<examples::CreateTournament, examples::TournamentCreated>(handle_create_tournament)
+        .on<examples::OpenRegistration, examples::RegistrationOpened>(handle_open_registration_tournament)
+        .on<examples::CloseRegistration, examples::RegistrationClosed>(handle_close_registration_tournament)
+        .on<examples::AdvanceBlindLevel, examples::BlindLevelAdvanced>(handle_advance_blind_level)
+        .on<examples::EliminatePlayer, examples::PlayerEliminated>(handle_eliminate_player)
+        .on<examples::PauseTournament, examples::TournamentPaused>(handle_pause_tournament)
+        .on<examples::ResumeTournament, examples::TournamentResumed>(handle_resume_tournament);
     // Note: EnrollPlayer and ProcessRebuy require dual-event responses
     // (success OR rejection), which the simple on<Cmd, Event> pattern doesn't support.
     // These are handled via the full handler interface in production.

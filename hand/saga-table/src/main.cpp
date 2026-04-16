@@ -1,3 +1,9 @@
+/**
+ * Hand -> Table saga using OO pattern.
+ *
+ * Reacts to HandComplete events from Hand domain.
+ * Sends EndHand commands to Table domain.
+ */
 #include <google/protobuf/any.pb.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
@@ -6,7 +12,9 @@
 #include <memory>
 #include <string>
 
+#include "angzarr/macros.hpp"
 #include "angzarr/saga.grpc.pb.h"
+#include "angzarr/saga.hpp"
 #include "angzarr/types.pb.h"
 #include "examples/hand.pb.h"
 #include "examples/table.pb.h"
@@ -14,74 +22,68 @@
 namespace {
 
 constexpr int DEFAULT_PORT = 50412;
-constexpr const char* SAGA_NAME = "saga-hand-table";
-constexpr const char* INPUT_DOMAIN = "hand";
-constexpr const char* OUTPUT_DOMAIN = "table";
 
-/// gRPC service implementation for hand-table saga.
-/// Sagas are stateless translators - framework handles sequence stamping.
+/**
+ * Saga: Hand -> Table (OO Pattern)
+ *
+ * Reacts to HandComplete events from Hand domain.
+ * Sends EndHand commands to Table domain.
+ */
+class HandTableSaga : public angzarr::Saga {
+   public:
+    ANGZARR_SAGA("saga-hand-table", "hand", "table")
+
+    ANGZARR_REACTS_TO(HandComplete)
+    (const examples::HandComplete& event) {
+        examples::EndHand end_hand;
+        // hand_root comes from the source cover, but we also have table_root in the event
+        end_hand.set_hand_root(event.table_root());  // The hand's own root
+
+        for (const auto& winner : event.winners()) {
+            auto* result = end_hand.add_results();
+            result->set_winner_root(winner.player_root());
+            result->set_amount(winner.amount());
+            result->set_pot_type(winner.pot_type());
+            *result->mutable_winning_hand() = winner.winning_hand();
+        }
+
+        return end_hand;
+    }
+};
+
+/**
+ * gRPC service for Hand->Table saga using OO pattern.
+ */
 class HandTableSagaService final : public angzarr::SagaService::Service {
    public:
     grpc::Status Handle(grpc::ServerContext* context, const angzarr::SagaHandleRequest* request,
                         angzarr::SagaResponse* response) override {
         (void)context;
-        try {
-            const auto& source = request->source();
+        std::vector<angzarr::EventBook> destinations;
 
-            // Find HandComplete event
-            for (const auto& page : source.pages()) {
-                const auto& event_any = page.event();
-                if (event_any.type_url().find("HandComplete") != std::string::npos) {
-                    examples::HandComplete event;
-                    event_any.UnpackTo(&event);
+        auto result = saga_.dispatch(request->source(), destinations);
 
-                    // Get hand_root from source
-                    std::string hand_root;
-                    if (source.has_cover() && source.cover().has_root()) {
-                        hand_root = source.cover().root().value();
-                    }
-
-                    // Build EndHand command
-                    examples::EndHand end_hand;
-                    end_hand.set_hand_root(hand_root);
-
-                    // Convert PotWinner to PotResult
-                    for (const auto& winner : event.winners()) {
-                        auto* result = end_hand.add_results();
-                        result->set_winner_root(winner.player_root());
-                        result->set_amount(winner.amount());
-                        result->set_pot_type(winner.pot_type());
-                        *result->mutable_winning_hand() = winner.winning_hand();
-                    }
-
-                    // Build command book
-                    auto* cmd_book = response->add_commands();
-                    auto* cover = cmd_book->mutable_cover();
-                    cover->set_domain(OUTPUT_DOMAIN);
-                    cover->mutable_root()->set_value(event.table_root());
-                    cover->set_correlation_id(source.cover().correlation_id());
-
-                    auto* cmd_page = cmd_book->add_pages();
-                    // Framework handles sequence stamping
-                    cmd_page->mutable_header()->mutable_angzarr_deferred();
-                    cmd_page->mutable_command()->PackFrom(end_hand);
-
-                    break;
-                }
-            }
-
-            return grpc::Status::OK;
-        } catch (const std::exception& e) {
-            return grpc::Status(grpc::StatusCode::INTERNAL, e.what());
+        for (const auto& cmd : result.commands) {
+            *response->add_commands() = cmd;
         }
+        for (const auto& fact : result.facts) {
+            *response->add_events() = fact;
+        }
+
+        return grpc::Status::OK;
     }
+
+   private:
+    HandTableSaga saga_;
 };
 
 }  // anonymous namespace
 
 int main(int argc, char** argv) {
     int port = DEFAULT_PORT;
-    if (argc > 1) {
+    if (const char* env_port = std::getenv("GRPC_PORT")) {
+        port = std::stoi(env_port);
+    } else if (argc > 1) {
         port = std::stoi(argv[1]);
     }
 
@@ -96,7 +98,7 @@ int main(int argc, char** argv) {
     builder.RegisterService(&service);
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Hand-Table saga server listening on " << server_address << std::endl;
+    std::cout << "Hand->Table saga (OO) listening on " << server_address << std::endl;
 
     server->Wait();
     return 0;

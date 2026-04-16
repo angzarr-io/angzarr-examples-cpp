@@ -9,7 +9,7 @@
 namespace hand {
 namespace handlers {
 
-examples::ActionTaken handle_action(const examples::PlayerAction& cmd, const HandState& state) {
+examples::ActionTaken handle_player_action(const examples::PlayerAction& cmd, const HandState& state) {
     // Guard
     if (!state.exists()) {
         throw angzarr::CommandRejectedError::not_found("Hand not dealt");

@@ -9,7 +9,7 @@
 namespace table {
 namespace handlers {
 
-examples::TableCreated handle_create(const examples::CreateTable& cmd, const TableState& state) {
+examples::TableCreated handle_create_table(const examples::CreateTable& cmd, const TableState& state) {
     // Guard
     if (state.exists()) {
         throw angzarr::CommandRejectedError::precondition_failed("Table already exists");

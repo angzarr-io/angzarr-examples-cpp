@@ -9,7 +9,7 @@
 namespace table {
 namespace handlers {
 
-examples::PlayerJoined handle_join(const examples::JoinTable& cmd, const TableState& state) {
+examples::PlayerJoined handle_join_table(const examples::JoinTable& cmd, const TableState& state) {
     // Guard
     if (!state.exists()) {
         throw angzarr::CommandRejectedError::not_found("Table does not exist");

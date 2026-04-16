@@ -30,11 +30,11 @@ angzarr::CommandRouter<hand::HandState> create_router() {
         return hand::HandState::from_event_book(eb);
     };
     return angzarr::CommandRouter<hand::HandState>(HAND_DOMAIN, state_rebuilder)
-        .on<examples::DealCards, examples::CardsDealt>(hand::handlers::handle_deal)
+        .on<examples::DealCards, examples::CardsDealt>(hand::handlers::handle_deal_cards)
         .on<examples::PostBlind, examples::BlindPosted>(hand::handlers::handle_post_blind)
-        .on<examples::PlayerAction, examples::ActionTaken>(hand::handlers::handle_action)
+        .on<examples::PlayerAction, examples::ActionTaken>(hand::handlers::handle_player_action)
         .on<examples::DealCommunityCards, examples::CommunityCardsDealt>(
-            hand::handlers::handle_deal_community);
+            hand::handlers::handle_deal_community_cards);
 }
 
 /// gRPC service implementation for hand aggregate.
@@ -81,7 +81,7 @@ class HandAggregateService final : public angzarr::CommandHandlerService::Servic
             if (type_url.find("DealCards") != std::string::npos) {
                 examples::DealCards cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = hand::handlers::handle_deal(cmd, state);
+                auto event = hand::handlers::handle_deal_cards(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("PostBlind") != std::string::npos) {
@@ -93,13 +93,13 @@ class HandAggregateService final : public angzarr::CommandHandlerService::Servic
             } else if (type_url.find("PlayerAction") != std::string::npos) {
                 examples::PlayerAction cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = hand::handlers::handle_action(cmd, state);
+                auto event = hand::handlers::handle_player_action(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("DealCommunityCards") != std::string::npos) {
                 examples::DealCommunityCards cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = hand::handlers::handle_deal_community(cmd, state);
+                auto event = hand::handlers::handle_deal_community_cards(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else {

@@ -196,7 +196,7 @@ WHEN("^I handle a CreateTable command with name \"([^\"]*)\" and variant \"([^\"
     cmd.set_action_timeout_seconds(30);
 
     try {
-        auto event = table::handlers::handle_create(cmd, tests::g_context.table_state);
+        auto event = table::handlers::handle_create_table(cmd, tests::g_context.table_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -216,7 +216,7 @@ WHEN("^I handle a JoinTable command for player \"([^\"]*)\" at seat (-?\\d+) wit
     cmd.set_buy_in_amount(buy_in);
 
     try {
-        auto event = table::handlers::handle_join(cmd, tests::g_context.table_state);
+        auto event = table::handlers::handle_join_table(cmd, tests::g_context.table_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -232,7 +232,7 @@ WHEN("^I handle a LeaveTable command for player \"([^\"]*)\"$") {
     cmd.set_player_root(make_player_root(player_id));
 
     try {
-        auto event = table::handlers::handle_leave(cmd, tests::g_context.table_state);
+        auto event = table::handlers::handle_leave_table(cmd, tests::g_context.table_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);

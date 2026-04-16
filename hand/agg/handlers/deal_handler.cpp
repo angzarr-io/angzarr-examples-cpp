@@ -11,7 +11,7 @@
 namespace hand {
 namespace handlers {
 
-examples::CardsDealt handle_deal(const examples::DealCards& cmd, const HandState& state) {
+examples::CardsDealt handle_deal_cards(const examples::DealCards& cmd, const HandState& state) {
     // Guard
     if (state.exists()) {
         throw angzarr::CommandRejectedError::precondition_failed("Hand already dealt");

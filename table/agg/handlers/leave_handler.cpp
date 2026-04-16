@@ -9,7 +9,7 @@
 namespace table {
 namespace handlers {
 
-examples::PlayerLeft handle_leave(const examples::LeaveTable& cmd, const TableState& state) {
+examples::PlayerLeft handle_leave_table(const examples::LeaveTable& cmd, const TableState& state) {
     // Guard
     if (!state.exists()) {
         throw angzarr::CommandRejectedError::not_found("Table does not exist");

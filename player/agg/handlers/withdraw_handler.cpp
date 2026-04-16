@@ -7,7 +7,7 @@
 namespace player {
 namespace handlers {
 
-examples::FundsWithdrawn handle_withdraw(const examples::WithdrawFunds& cmd,
+examples::FundsWithdrawn handle_withdraw_funds(const examples::WithdrawFunds& cmd,
                                          const PlayerState& state) {
     // Guard
     if (!state.exists()) {

@@ -7,7 +7,7 @@ namespace table {
 namespace handlers {
 
 /// Handle LeaveTable command.
-examples::PlayerLeft handle_leave(const examples::LeaveTable& cmd, const TableState& state);
+examples::PlayerLeft handle_leave_table(const examples::LeaveTable& cmd, const TableState& state);
 
 }  // namespace handlers
 }  // namespace table

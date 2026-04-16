@@ -7,7 +7,7 @@ namespace player {
 namespace handlers {
 
 /// Handle ReserveFunds command.
-examples::FundsReserved handle_reserve(const examples::ReserveFunds& cmd, const PlayerState& state);
+examples::FundsReserved handle_reserve_funds(const examples::ReserveFunds& cmd, const PlayerState& state);
 
 }  // namespace handlers
 }  // namespace player

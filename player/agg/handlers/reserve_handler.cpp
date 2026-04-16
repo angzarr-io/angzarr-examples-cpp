@@ -20,7 +20,7 @@ std::string bytes_to_hex(const std::string& bytes) {
 }  // anonymous namespace
 
 // docs:start:reserve_funds_imp
-examples::FundsReserved handle_reserve(const examples::ReserveFunds& cmd,
+examples::FundsReserved handle_reserve_funds(const examples::ReserveFunds& cmd,
                                        const PlayerState& state) {
     // Guard
     if (!state.exists()) {

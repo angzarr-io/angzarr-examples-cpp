@@ -18,7 +18,7 @@
 TEST(RegisterHandler, RejectsExistingPlayer) {
     player::PlayerState state;
     state.player_id = "existing";
-    EXPECT_THROW(player::handlers::handle_register(
+    EXPECT_THROW(player::handlers::handle_register_player(
         examples::RegisterPlayer(), state), angzarr::CommandRejectedError);
 }
 
@@ -27,7 +27,7 @@ TEST(RegisterHandler, SetsDisplayName) {
     cmd.set_display_name("Alice");
     cmd.set_email("alice@example.com");
     player::PlayerState state;
-    auto event = player::handlers::handle_register(cmd, state);
+    auto event = player::handlers::handle_register_player(cmd, state);
     EXPECT_EQ(event.display_name(), "Alice");
 }
 
@@ -36,7 +36,7 @@ TEST(RegisterHandler, SetsEmail) {
     cmd.set_display_name("Alice");
     cmd.set_email("alice@example.com");
     player::PlayerState state;
-    auto event = player::handlers::handle_register(cmd, state);
+    auto event = player::handlers::handle_register_player(cmd, state);
     EXPECT_EQ(event.email(), "alice@example.com");
 }
 
@@ -46,7 +46,7 @@ TEST(DepositHandler, RejectsNonExistentPlayer) {
     player::PlayerState state;
     examples::DepositFunds cmd;
     cmd.mutable_amount()->set_amount(500);
-    EXPECT_THROW(player::handlers::handle_deposit(cmd, state),
+    EXPECT_THROW(player::handlers::handle_deposit_funds(cmd, state),
                  angzarr::CommandRejectedError);
 }
 
@@ -56,7 +56,7 @@ TEST(DepositHandler, IncreasesBankroll) {
     state.bankroll = 1000;
     examples::DepositFunds cmd;
     cmd.mutable_amount()->set_amount(500);
-    auto event = player::handlers::handle_deposit(cmd, state);
+    auto event = player::handlers::handle_deposit_funds(cmd, state);
     EXPECT_EQ(event.new_balance().amount(), 1500);
 }
 
@@ -65,7 +65,7 @@ TEST(DepositHandler, RejectsZeroAmount) {
     state.player_id = "player1";
     examples::DepositFunds cmd;
     cmd.mutable_amount()->set_amount(0);
-    EXPECT_THROW(player::handlers::handle_deposit(cmd, state),
+    EXPECT_THROW(player::handlers::handle_deposit_funds(cmd, state),
                  angzarr::CommandRejectedError);
 }
 
@@ -77,7 +77,7 @@ TEST(WithdrawHandler, RejectsInsufficientFunds) {
     state.bankroll = 100;
     examples::WithdrawFunds cmd;
     cmd.mutable_amount()->set_amount(200);
-    EXPECT_THROW(player::handlers::handle_withdraw(cmd, state),
+    EXPECT_THROW(player::handlers::handle_withdraw_funds(cmd, state),
                  angzarr::CommandRejectedError);
 }
 
@@ -88,7 +88,7 @@ TEST(WithdrawHandler, DecreasesBankroll) {
     state.reserved_funds = 0;
     examples::WithdrawFunds cmd;
     cmd.mutable_amount()->set_amount(400);
-    auto event = player::handlers::handle_withdraw(cmd, state);
+    auto event = player::handlers::handle_withdraw_funds(cmd, state);
     EXPECT_EQ(event.new_balance().amount(), 600);
 }
 
@@ -102,7 +102,7 @@ TEST(ReserveHandler, RejectsInsufficientAvailable) {
     examples::ReserveFunds cmd;
     cmd.mutable_amount()->set_amount(200);
     cmd.set_table_root("table-1");
-    EXPECT_THROW(player::handlers::handle_reserve(cmd, state),
+    EXPECT_THROW(player::handlers::handle_reserve_funds(cmd, state),
                  angzarr::CommandRejectedError);
 }
 
@@ -114,7 +114,7 @@ TEST(ReserveHandler, LocksAmount) {
     examples::ReserveFunds cmd;
     cmd.mutable_amount()->set_amount(500);
     cmd.set_table_root("table-1");
-    auto event = player::handlers::handle_reserve(cmd, state);
+    auto event = player::handlers::handle_reserve_funds(cmd, state);
     EXPECT_EQ(event.amount().amount(), 500);
     EXPECT_EQ(event.new_reserved_balance().amount(), 500);
     EXPECT_EQ(event.new_available_balance().amount(), 500);

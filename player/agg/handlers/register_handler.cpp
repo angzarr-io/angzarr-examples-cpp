@@ -7,7 +7,7 @@
 namespace player {
 namespace handlers {
 
-examples::PlayerRegistered handle_register(const examples::RegisterPlayer& cmd,
+examples::PlayerRegistered handle_register_player(const examples::RegisterPlayer& cmd,
                                            const PlayerState& state) {
     // Guard: preconditions on state
     if (state.exists()) {

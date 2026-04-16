@@ -40,12 +40,12 @@ angzarr::CommandRouter<player::PlayerState> create_router() {
         return player::PlayerState::from_event_book(eb);
     };
     return angzarr::CommandRouter<player::PlayerState>(PLAYER_DOMAIN, state_rebuilder)
-        .on<examples::RegisterPlayer, examples::PlayerRegistered>(player::handlers::handle_register)
-        .on<examples::DepositFunds, examples::FundsDeposited>(player::handlers::handle_deposit)
-        .on<examples::WithdrawFunds, examples::FundsWithdrawn>(player::handlers::handle_withdraw)
-        .on<examples::ReserveFunds, examples::FundsReserved>(player::handlers::handle_reserve)
-        .on<examples::ReleaseFunds, examples::FundsReleased>(player::handlers::handle_release)
-        .on<examples::TransferFunds, examples::FundsTransferred>(player::handlers::handle_transfer);
+        .on<examples::RegisterPlayer, examples::PlayerRegistered>(player::handlers::handle_register_player)
+        .on<examples::DepositFunds, examples::FundsDeposited>(player::handlers::handle_deposit_funds)
+        .on<examples::WithdrawFunds, examples::FundsWithdrawn>(player::handlers::handle_withdraw_funds)
+        .on<examples::ReserveFunds, examples::FundsReserved>(player::handlers::handle_reserve_funds)
+        .on<examples::ReleaseFunds, examples::FundsReleased>(player::handlers::handle_release_funds)
+        .on<examples::TransferFunds, examples::FundsTransferred>(player::handlers::handle_transfer_funds);
 }
 // docs:end:command_router
 
@@ -85,37 +85,37 @@ class PlayerAggregateService final : public angzarr::CommandHandlerService::Serv
             if (type_url.find("RegisterPlayer") != std::string::npos) {
                 examples::RegisterPlayer cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = player::handlers::handle_register(cmd, state);
+                auto event = player::handlers::handle_register_player(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("DepositFunds") != std::string::npos) {
                 examples::DepositFunds cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = player::handlers::handle_deposit(cmd, state);
+                auto event = player::handlers::handle_deposit_funds(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("WithdrawFunds") != std::string::npos) {
                 examples::WithdrawFunds cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = player::handlers::handle_withdraw(cmd, state);
+                auto event = player::handlers::handle_withdraw_funds(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("ReserveFunds") != std::string::npos) {
                 examples::ReserveFunds cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = player::handlers::handle_reserve(cmd, state);
+                auto event = player::handlers::handle_reserve_funds(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("ReleaseFunds") != std::string::npos) {
                 examples::ReleaseFunds cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = player::handlers::handle_release(cmd, state);
+                auto event = player::handlers::handle_release_funds(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("TransferFunds") != std::string::npos) {
                 examples::TransferFunds cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = player::handlers::handle_transfer(cmd, state);
+                auto event = player::handlers::handle_transfer_funds(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else {

@@ -37,7 +37,7 @@ PhaseTransition get_next_phase(examples::GameVariant variant, examples::BettingP
 
 }  // anonymous namespace
 
-examples::CommunityCardsDealt handle_deal_community(const examples::DealCommunityCards& cmd,
+examples::CommunityCardsDealt handle_deal_community_cards(const examples::DealCommunityCards& cmd,
                                                     const HandState& state) {
     // Guard
     if (!state.exists()) {

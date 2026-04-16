@@ -8,23 +8,23 @@
 
 namespace table {
 
-examples::TableCreated Table::create(const examples::CreateTable& cmd) {
-    return handlers::handle_create(cmd, state_);
+examples::TableCreated Table::handle_create_table(const examples::CreateTable& cmd) {
+    return handlers::handle_create_table(cmd, state_);
 }
 
-examples::PlayerJoined Table::join(const examples::JoinTable& cmd) {
-    return handlers::handle_join(cmd, state_);
+examples::PlayerJoined Table::handle_join_table(const examples::JoinTable& cmd) {
+    return handlers::handle_join_table(cmd, state_);
 }
 
-examples::PlayerLeft Table::leave(const examples::LeaveTable& cmd) {
-    return handlers::handle_leave(cmd, state_);
+examples::PlayerLeft Table::handle_leave_table(const examples::LeaveTable& cmd) {
+    return handlers::handle_leave_table(cmd, state_);
 }
 
-examples::HandStarted Table::start_hand(const examples::StartHand& cmd) {
+examples::HandStarted Table::handle_start_hand(const examples::StartHand& cmd) {
     return handlers::handle_start_hand(cmd, state_);
 }
 
-examples::HandEnded Table::end_hand(const examples::EndHand& cmd) {
+examples::HandEnded Table::handle_end_hand(const examples::EndHand& cmd) {
     return handlers::handle_end_hand(cmd, state_);
 }
 

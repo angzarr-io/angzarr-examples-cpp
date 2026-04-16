@@ -31,12 +31,12 @@ class Player : public angzarr::Aggregate<Player, PlayerState> {
     bool is_ai() const { return state_.is_ai(); }
 
     // Command handlers
-    examples::PlayerRegistered handle_register(const examples::RegisterPlayer& cmd);
-    examples::FundsDeposited handle_deposit(const examples::DepositFunds& cmd);
-    examples::FundsWithdrawn handle_withdraw(const examples::WithdrawFunds& cmd);
-    examples::FundsReserved handle_reserve(const examples::ReserveFunds& cmd);
-    examples::FundsReleased handle_release(const examples::ReleaseFunds& cmd);
-    examples::FundsTransferred handle_transfer(const examples::TransferFunds& cmd);
+    examples::PlayerRegistered handle_register_player(const examples::RegisterPlayer& cmd);
+    examples::FundsDeposited handle_deposit_funds(const examples::DepositFunds& cmd);
+    examples::FundsWithdrawn handle_withdraw_funds(const examples::WithdrawFunds& cmd);
+    examples::FundsReserved handle_reserve_funds(const examples::ReserveFunds& cmd);
+    examples::FundsReleased handle_release_funds(const examples::ReleaseFunds& cmd);
+    examples::FundsTransferred handle_transfer_funds(const examples::TransferFunds& cmd);
 
     // Rejection handler for JoinTable rejection
     examples::FundsReleased handle_join_rejected(const angzarr::Notification& notification);

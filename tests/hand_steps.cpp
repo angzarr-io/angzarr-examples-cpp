@@ -559,7 +559,7 @@ WHEN("^I handle a DealCards command for (\\w+) with players:$") {
     }
 
     try {
-        auto event = hand::handlers::handle_deal(cmd, tests::g_context.hand_state);
+        auto event = hand::handlers::handle_deal_cards(cmd, tests::g_context.hand_state);
         tests::g_context.set_result(event);
         g_hand_state.deck_remaining = event.remaining_deck_size();
     } catch (const angzarr::CommandRejectedError& e) {
@@ -585,7 +585,7 @@ WHEN("^I handle a DealCards command with seed \"([^\"]*)\" and players:$") {
     }
 
     try {
-        auto event = hand::handlers::handle_deal(cmd, tests::g_context.hand_state);
+        auto event = hand::handlers::handle_deal_cards(cmd, tests::g_context.hand_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -624,7 +624,7 @@ WHEN("^I handle a PlayerAction command for player \"([^\"]*)\" action (\\w+)$") 
     cmd.set_action(parse_action_type(action_str));
 
     try {
-        auto event = hand::handlers::handle_action(cmd, tests::g_context.hand_state);
+        auto event = hand::handlers::handle_player_action(cmd, tests::g_context.hand_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -644,7 +644,7 @@ WHEN("^I handle a PlayerAction command for player \"([^\"]*)\" action (\\w+) amo
     cmd.set_amount(amount);
 
     try {
-        auto event = hand::handlers::handle_action(cmd, tests::g_context.hand_state);
+        auto event = hand::handlers::handle_player_action(cmd, tests::g_context.hand_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -660,7 +660,7 @@ WHEN("^I handle a DealCommunityCards command with count (\\d+)$") {
     cmd.set_count(count);
 
     try {
-        auto event = hand::handlers::handle_deal_community(cmd, tests::g_context.hand_state);
+        auto event = hand::handlers::handle_deal_community_cards(cmd, tests::g_context.hand_state);
         tests::g_context.set_result(event);
         g_hand_state.deck_remaining -= count;
     } catch (const angzarr::CommandRejectedError& e) {

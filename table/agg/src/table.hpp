@@ -38,11 +38,11 @@ class Table : public angzarr::Aggregate<Table, TableState> {
     }
 
     // Command handlers (OO style)
-    examples::TableCreated create(const examples::CreateTable& cmd);
-    examples::PlayerJoined join(const examples::JoinTable& cmd);
-    examples::PlayerLeft leave(const examples::LeaveTable& cmd);
-    examples::HandStarted start_hand(const examples::StartHand& cmd);
-    examples::HandEnded end_hand(const examples::EndHand& cmd);
+    examples::TableCreated handle_create_table(const examples::CreateTable& cmd);
+    examples::PlayerJoined handle_join_table(const examples::JoinTable& cmd);
+    examples::PlayerLeft handle_leave_table(const examples::LeaveTable& cmd);
+    examples::HandStarted handle_start_hand(const examples::StartHand& cmd);
+    examples::HandEnded handle_end_hand(const examples::EndHand& cmd);
 
    protected:
     friend class angzarr::Aggregate<Table, TableState>;

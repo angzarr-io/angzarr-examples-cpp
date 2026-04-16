@@ -30,9 +30,9 @@ angzarr::CommandRouter<table::TableState> create_router() {
         return table::TableState::from_event_book(eb);
     };
     return angzarr::CommandRouter<table::TableState>(TABLE_DOMAIN, state_rebuilder)
-        .on<examples::CreateTable, examples::TableCreated>(table::handlers::handle_create)
-        .on<examples::JoinTable, examples::PlayerJoined>(table::handlers::handle_join)
-        .on<examples::LeaveTable, examples::PlayerLeft>(table::handlers::handle_leave)
+        .on<examples::CreateTable, examples::TableCreated>(table::handlers::handle_create_table)
+        .on<examples::JoinTable, examples::PlayerJoined>(table::handlers::handle_join_table)
+        .on<examples::LeaveTable, examples::PlayerLeft>(table::handlers::handle_leave_table)
         .on<examples::StartHand, examples::HandStarted>(table::handlers::handle_start_hand)
         .on<examples::EndHand, examples::HandEnded>(table::handlers::handle_end_hand);
 }
@@ -66,19 +66,19 @@ class TableAggregateService final : public angzarr::CommandHandlerService::Servi
             if (type_url.find("CreateTable") != std::string::npos) {
                 examples::CreateTable cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = table::handlers::handle_create(cmd, state);
+                auto event = table::handlers::handle_create_table(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("JoinTable") != std::string::npos) {
                 examples::JoinTable cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = table::handlers::handle_join(cmd, state);
+                auto event = table::handlers::handle_join_table(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("LeaveTable") != std::string::npos) {
                 examples::LeaveTable cmd;
                 command_any.UnpackTo(&cmd);
-                auto event = table::handlers::handle_leave(cmd, state);
+                auto event = table::handlers::handle_leave_table(cmd, state);
                 auto* page = events->add_pages();
                 page->mutable_event()->PackFrom(event);
             } else if (type_url.find("StartHand") != std::string::npos) {

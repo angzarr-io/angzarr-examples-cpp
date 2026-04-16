@@ -1,6 +1,5 @@
 add_executable(saga-player-table
     src/main.cpp
-    src/player_table_saga.cpp
 )
 
 target_include_directories(saga-player-table PRIVATE

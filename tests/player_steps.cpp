@@ -98,7 +98,7 @@ WHEN("^I handle a RegisterPlayer command with name \"([^\"]*)\" and email \"([^\
     cmd.set_player_type(examples::PlayerType::HUMAN);
 
     try {
-        auto event = player::handlers::handle_register(cmd, tests::g_context.player_state);
+        auto event = player::handlers::handle_register_player(cmd, tests::g_context.player_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -118,7 +118,7 @@ WHEN("^I handle a RegisterPlayer command with name \"([^\"]*)\" and email \"([^\
     cmd.set_ai_model_id("gpt-4");
 
     try {
-        auto event = player::handlers::handle_register(cmd, tests::g_context.player_state);
+        auto event = player::handlers::handle_register_player(cmd, tests::g_context.player_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -135,7 +135,7 @@ WHEN("^I handle a DepositFunds command with amount (\\d+)$") {
     cmd.mutable_amount()->set_currency_code("CHIPS");
 
     try {
-        auto event = player::handlers::handle_deposit(cmd, tests::g_context.player_state);
+        auto event = player::handlers::handle_deposit_funds(cmd, tests::g_context.player_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -152,7 +152,7 @@ WHEN("^I handle a WithdrawFunds command with amount (\\d+)$") {
     cmd.mutable_amount()->set_currency_code("CHIPS");
 
     try {
-        auto event = player::handlers::handle_withdraw(cmd, tests::g_context.player_state);
+        auto event = player::handlers::handle_withdraw_funds(cmd, tests::g_context.player_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -171,7 +171,7 @@ WHEN("^I handle a ReserveFunds command with amount (\\d+) for table \"([^\"]*)\"
     cmd.mutable_amount()->set_currency_code("CHIPS");
 
     try {
-        auto event = player::handlers::handle_reserve(cmd, tests::g_context.player_state);
+        auto event = player::handlers::handle_reserve_funds(cmd, tests::g_context.player_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);
@@ -187,7 +187,7 @@ WHEN("^I handle a ReleaseFunds command for table \"([^\"]*)\"$") {
     cmd.set_table_root(make_table_root(table_id));
 
     try {
-        auto event = player::handlers::handle_release(cmd, tests::g_context.player_state);
+        auto event = player::handlers::handle_release_funds(cmd, tests::g_context.player_state);
         tests::g_context.set_result(event);
     } catch (const angzarr::CommandRejectedError& e) {
         tests::g_context.set_error(e.what(), e.status_code);

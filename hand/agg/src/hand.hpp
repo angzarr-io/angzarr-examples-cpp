@@ -42,11 +42,11 @@ class Hand : public angzarr::Aggregate<Hand, HandState> {
     }
 
     // Command handlers (OO style)
-    examples::CardsDealt deal(const examples::DealCards& cmd);
-    examples::BlindPosted post_blind(const examples::PostBlind& cmd);
-    examples::ActionTaken action(const examples::PlayerAction& cmd);
-    examples::CommunityCardsDealt deal_community(const examples::DealCommunityCards& cmd);
-    std::pair<examples::PotAwarded, examples::HandComplete> award_pot(
+    examples::CardsDealt handle_deal_cards(const examples::DealCards& cmd);
+    examples::BlindPosted handle_post_blind(const examples::PostBlind& cmd);
+    examples::ActionTaken handle_player_action(const examples::PlayerAction& cmd);
+    examples::CommunityCardsDealt handle_deal_community_cards(const examples::DealCommunityCards& cmd);
+    std::pair<examples::PotAwarded, examples::HandComplete> handle_award_pot(
         const examples::AwardPot& cmd);
 
    protected:

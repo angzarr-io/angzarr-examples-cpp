@@ -1,6 +1,5 @@
 add_executable(saga-hand-table
     src/main.cpp
-    src/hand_table_saga.cpp
 )
 
 target_include_directories(saga-hand-table PRIVATE

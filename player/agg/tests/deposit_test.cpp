@@ -19,7 +19,7 @@ TEST(DepositHandlerTest, DepositIncreasesBankroll) {
     cmd.mutable_amount()->set_amount(500);
     cmd.mutable_amount()->set_currency_code("CHIPS");
 
-    auto event = compute(cmd, state, 500);
+    auto event = deposit_funds_compute(cmd, state, 500);
 
     EXPECT_EQ(event.new_balance().amount(), 1500);
 }
@@ -30,7 +30,7 @@ TEST(DepositHandlerTest, RejectsNonExistentPlayer) {
     EXPECT_THROW(
         {
             try {
-                guard(state);
+                deposit_funds_guard(state);
             } catch (const angzarr::CommandRejectedError& e) {
                 EXPECT_NE(std::string(e.what()).find("does not exist"), std::string::npos);
                 throw;
@@ -47,7 +47,7 @@ TEST(DepositHandlerTest, RejectsZeroAmount) {
     EXPECT_THROW(
         {
             try {
-                validate(cmd);
+                deposit_funds_validate(cmd);
             } catch (const angzarr::CommandRejectedError& e) {
                 EXPECT_NE(std::string(e.what()).find("positive"), std::string::npos);
                 throw;

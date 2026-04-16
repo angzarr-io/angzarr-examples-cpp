@@ -15,8 +15,8 @@ namespace handlers {
 ///
 /// Why this pattern? Each step is a pure function (state in, result out),
 /// enabling direct unit testing without mocking infrastructure.
-examples::PlayerRegistered handle_register(const examples::RegisterPlayer& cmd,
-                                           const PlayerState& state);
+examples::PlayerRegistered handle_register_player(const examples::RegisterPlayer& cmd,
+                                                  const PlayerState& state);
 
 }  // namespace handlers
 }  // namespace player
