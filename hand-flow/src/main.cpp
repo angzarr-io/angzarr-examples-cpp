@@ -25,36 +25,6 @@ class HandFlowService final : public angzarr::ProcessManagerService::Service {
               std::cout << "Would send command to domain: " << cmd.cover().domain() << std::endl;
           }) {}
 
-    grpc::Status Prepare(grpc::ServerContext* context,
-                         const angzarr::ProcessManagerPrepareRequest* request,
-                         angzarr::ProcessManagerPrepareResponse* response) override {
-        const auto& trigger = request->trigger();
-        std::string trigger_domain = trigger.has_cover() ? trigger.cover().domain() : "";
-
-        for (const auto& page : trigger.pages()) {
-            const auto& event_any = page.event();
-            const std::string& type_url = event_any.type_url();
-
-            if (type_url.find("HandStarted") != std::string::npos) {
-                examples::HandStarted event;
-                if (event_any.UnpackTo(&event)) {
-                    auto* dest = response->add_destinations();
-                    dest->set_domain("hand");
-                    dest->mutable_root()->set_value(event.hand_root());
-                }
-            } else if (trigger_domain == "hand") {
-                // Hand domain events - use trigger's root directly for sequence lookup
-                if (trigger.has_cover() && trigger.cover().has_root()) {
-                    auto* dest = response->add_destinations();
-                    dest->set_domain("hand");
-                    dest->mutable_root()->CopyFrom(trigger.cover().root());
-                    break;  // Only need one destination per hand
-                }
-            }
-        }
-        return grpc::Status::OK;
-    }
-
     grpc::Status Handle(grpc::ServerContext* context,
                         const angzarr::ProcessManagerHandleRequest* request,
                         angzarr::ProcessManagerHandleResponse* response) override {
