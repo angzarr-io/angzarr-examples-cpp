@@ -8,8 +8,12 @@ include(FetchContent)
 # Find GTest (system-installed, required for cucumber-cpp)
 find_package(GTest 1.11.0 REQUIRED)
 
-# Find Boost (required by cucumber-cpp for regex)
-cmake_policy(SET CMP0167 NEW)
+# Find Boost (required by cucumber-cpp for regex).
+# CMP0167 was added in CMake 3.30; angzarr-cpp:latest ships older CMake,
+# so guard against the unknown-policy error.
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
 find_package(Boost 1.70 CONFIG QUIET COMPONENTS regex filesystem system program_options thread)
 if(NOT Boost_FOUND)
     find_package(Boost 1.70 REQUIRED COMPONENTS regex filesystem system program_options thread)
