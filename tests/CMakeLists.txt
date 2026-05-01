@@ -34,8 +34,10 @@ set(CUKE_ENABLE_EXAMPLES OFF CACHE BOOL "Disable cucumber-cpp examples")
 set(CMAKE_SKIP_INSTALL_RULES ON)
 
 # Disable warnings-as-errors for dependencies to avoid GCC 12+ false positives
-# with gtest internal headers (char_traits.h)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=restrict")
+# with gtest internal headers (char_traits.h). Also tell clang to ignore
+# gcc-only -W flags rather than error out — cucumber-cpp v0.7.0's own
+# CMakeLists adds `-Werror=restrict` which clang doesn't recognize.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=restrict -Wno-unknown-warning-option")
 
 # Fetch cucumber-cpp
 FetchContent_Declare(
