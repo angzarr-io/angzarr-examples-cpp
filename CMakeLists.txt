@@ -10,8 +10,9 @@ find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
 
-# Proto files location
-set(PROTO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/angzarr-client-cpp/angzarr/proto")
+# Proto files — read directly from the angzarr-project submodule
+# (the spec contract). No buf-export staging dir.
+set(PROTO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/angzarr-project/proto")
 set(ANGZARR_PROTO_DIR "${PROTO_ROOT}/angzarr")
 set(EXAMPLES_PROTO_DIR "${PROTO_ROOT}/examples")
 set(GOOGLE_API_PROTO_DIR "${PROTO_ROOT}/google/api")
@@ -24,6 +25,11 @@ file(MAKE_DIRECTORY ${PROTO_GEN_DIR})
 file(GLOB ANGZARR_PROTOS "${ANGZARR_PROTO_DIR}/*.proto")
 file(GLOB EXAMPLES_PROTOS "${EXAMPLES_PROTO_DIR}/*.proto")
 file(GLOB GOOGLE_API_PROTOS "${GOOGLE_API_PROTO_DIR}/*.proto")
+
+# ai_sidecar.proto is python-side only — exclude from C++ compilation
+# (matches the previous justfile.container::proto-gen `rm` step).
+list(REMOVE_ITEM EXAMPLES_PROTOS "${EXAMPLES_PROTO_DIR}/ai_sidecar.proto")
+
 set(ALL_PROTOS ${GOOGLE_API_PROTOS} ${ANGZARR_PROTOS} ${EXAMPLES_PROTOS})
 
 # Generate proto sources
