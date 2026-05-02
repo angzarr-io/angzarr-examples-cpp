@@ -177,13 +177,13 @@ jobs:
         # use the -dev variants from core's stream/log workflow.
         run: |
           COORDINATOR_IMAGES=(
-            "ghcr.io/angzarr-io/angzarr-aggregate:0f30747@sha256:df8738f30e60ad7d3d571982169470cacd7a867d87a43c807bca54f487139d7f"
-            "ghcr.io/angzarr-io/angzarr-saga:0f30747@sha256:afbfb589653988bb1f63890904c21dc135ea51fcffd702e17a62233aac068b6a"
-            "ghcr.io/angzarr-io/angzarr-projector:0f30747@sha256:ce1ee6f99455ec0e84a4e517d660c57bbea54f8865f2da4de0ca259b42f4b4a2"
-            "ghcr.io/angzarr-io/angzarr-process-manager:0f30747@sha256:7455baea1e08b8cea5822349c83a182716ea21e506232b1ec5e62d27f1fe04a0"
+            "ghcr.io/angzarr-io/angzarr-aggregate:b98e8de@sha256:4799c8b2a85c148fac2368be4328f5cab599e68b14865ba03fe51698ba59b9fe"
+            "ghcr.io/angzarr-io/angzarr-saga:b98e8de@sha256:1b64face0a2f8fc346d506d3ab0d62dcc85bba54e3848aaab3897b808968a119"
+            "ghcr.io/angzarr-io/angzarr-projector:b98e8de@sha256:b9f3a52a37e0e9b3c47b8331d1d8c5f9c68331e655f13579b4bcf591b6f8aea1"
+            "ghcr.io/angzarr-io/angzarr-process-manager:b98e8de@sha256:49af52fe739d6b3552e32a8f182584e8bc9e7d57674089d2b57e9b102217f954"
             "ghcr.io/angzarr-io/angzarr-stream-dev:ba4fcd4a767165f56aadd2bfbf2b294a59394800@sha256:bb0bb16dc8b1039ba0cf63f38e6dbea380a389fbaae3143deaf70b4e0c38778f"
             "ghcr.io/angzarr-io/angzarr-log-dev:ba4fcd4a767165f56aadd2bfbf2b294a59394800@sha256:bf96d6a207d9328c3792c6d15d8a06eee2b3711b81beb74809bde41e20cfdf64"
-            "ghcr.io/angzarr-io/angzarr-grpc-gateway:0f30747@sha256:90841587573d6b936c919adc4d7a64cadadaefedd3d735db051fc329cd5b8164"
+            "ghcr.io/angzarr-io/angzarr-grpc-gateway:b98e8de@sha256:87bda37983c8ebafe59d1b7e5b436962e67fae93b28cbcba4950c641620c8b30"
           )
           for ref in "${COORDINATOR_IMAGES[@]}"; do
             echo "Pulling $ref..."
