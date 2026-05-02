@@ -8,8 +8,12 @@ include(FetchContent)
 # Find GTest (system-installed, required for cucumber-cpp)
 find_package(GTest 1.11.0 REQUIRED)
 
-# Find Boost (required by cucumber-cpp for regex)
-cmake_policy(SET CMP0167 NEW)
+# Find Boost (required by cucumber-cpp for regex).
+# CMP0167 was added in CMake 3.30; angzarr-cpp:latest ships older CMake,
+# so guard against the unknown-policy error.
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
 find_package(Boost 1.70 CONFIG QUIET COMPONENTS regex filesystem system program_options thread)
 if(NOT Boost_FOUND)
     find_package(Boost 1.70 REQUIRED COMPONENTS regex filesystem system program_options thread)
@@ -30,8 +34,10 @@ set(CUKE_ENABLE_EXAMPLES OFF CACHE BOOL "Disable cucumber-cpp examples")
 set(CMAKE_SKIP_INSTALL_RULES ON)
 
 # Disable warnings-as-errors for dependencies to avoid GCC 12+ false positives
-# with gtest internal headers (char_traits.h)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=restrict")
+# with gtest internal headers (char_traits.h). Also tell clang to ignore
+# gcc-only -W flags rather than error out — cucumber-cpp v0.7.0's own
+# CMakeLists adds `-Werror=restrict` which clang doesn't recognize.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=restrict -Wno-unknown-warning-option")
 
 # Fetch cucumber-cpp
 FetchContent_Declare(
