@@ -249,13 +249,28 @@ jobs:
             --namespace angzarr-test \
             --wait --timeout 3m
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create gateway descriptor configmap
         run: |
+          # Use protoc directly instead of `buf build` — the submodule
+          # ships google/api/*.proto locally AND buf.yaml declares
+          # buf.build/googleapis/googleapis as a dep, so buf errors with
+          # "contained in multiple modules". protoc has no such resolver.
+          mkdir -p /tmp/descriptor
           cd angzarr-project/proto
-          buf build -o /tmp/types.bin
+          protoc \
+            --descriptor_set_out=/tmp/descriptor/types.bin \
+            --include_imports \
+            --include_source_info \
+            -I . \
+            angzarr/*.proto examples/*.proto google/api/*.proto
           cd ../..
           kubectl create configmap gateway-descriptor \
-            --from-file=types.bin=/tmp/types.bin \
+            --from-file=types.bin=/tmp/descriptor/types.bin \
             --namespace angzarr-test
 
       - name: Deploy with Helm
