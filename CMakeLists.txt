@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 project(angzarr_examples_cpp VERSION 0.5.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -10,11 +10,27 @@ find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
 
-# Proto files location
-set(PROTO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/angzarr-client-cpp/angzarr/proto")
-set(ANGZARR_PROTO_DIR "${PROTO_ROOT}/angzarr")
-set(EXAMPLES_PROTO_DIR "${PROTO_ROOT}/examples")
+# Proto files location.
+#
+# Point PROTO_ROOT directly at the angzarr-project submodule. protoc only
+# READS from --proto_path (`PROTO_ROOT`) and writes generated .pb.{cc,h} to
+# PROTO_GEN_DIR under the build tree, so the submodule's WT stays clean —
+# satisfies the submodule-protection invariant from angzarr-project's
+# submodule.just (no parent-tree process is allowed to mutate the submodule).
+#
+# The previous indirection through `angzarr-client-cpp/angzarr/proto/`
+# polluted the angzarr-client-cpp submodule's worktree with copies, which
+# tripped `check-submodules-clean` and required the manual cp dance in
+# justfile.container's generate-proto-force recipe. That recipe now just
+# drives the proto_gen target, no staging required.
+set(PROTO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/angzarr-project/proto")
+set(ANGZARR_PROTO_DIR "${PROTO_ROOT}/angzarr_client/proto/angzarr/v1")
+set(EXAMPLES_PROTO_DIR "${PROTO_ROOT}/angzarr_client/proto/examples/v1")
 set(GOOGLE_API_PROTO_DIR "${PROTO_ROOT}/google/api")
+# Phase I-Cpp-v3: angzarr/types.proto imports sererr/v1/sererr.proto since
+# the 2026 sererr unification. CMake must compile sererr.proto too so
+# types.pb.h can find sererr.pb.h.
+set(SERERR_PROTO_DIR "${PROTO_ROOT}/sererr/v1")
 
 # Generated proto output
 set(PROTO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -24,7 +40,11 @@ file(MAKE_DIRECTORY ${PROTO_GEN_DIR})
 file(GLOB ANGZARR_PROTOS "${ANGZARR_PROTO_DIR}/*.proto")
 file(GLOB EXAMPLES_PROTOS "${EXAMPLES_PROTO_DIR}/*.proto")
 file(GLOB GOOGLE_API_PROTOS "${GOOGLE_API_PROTO_DIR}/*.proto")
-set(ALL_PROTOS ${GOOGLE_API_PROTOS} ${ANGZARR_PROTOS} ${EXAMPLES_PROTOS})
+file(GLOB SERERR_PROTOS "${SERERR_PROTO_DIR}/*.proto")
+# ai_sidecar.proto is Python-only by design (project_ai_driver_python_only);
+# excluded from the C++ build to avoid a stub-only compilation unit.
+list(FILTER EXAMPLES_PROTOS EXCLUDE REGEX "/ai_sidecar\\.proto$")
+set(ALL_PROTOS ${GOOGLE_API_PROTOS} ${SERERR_PROTOS} ${ANGZARR_PROTOS} ${EXAMPLES_PROTOS})
 
 # Generate proto sources
 set(PROTO_SRCS)
@@ -60,9 +80,29 @@ foreach(PROTO_FILE ${ALL_PROTOS})
     )
 endforeach()
 
+# Discrete proto-generation aggregator target.
+#
+# The justfile's `generate-proto` recipe drives this target so the protoc
+# custom-commands can run WITHOUT compiling the proto library or any
+# downstream examples. Keeping the regen entrypoint outside the main build
+# graph matches the cross-language pattern (project_proto_generation_model)
+# — the `add_custom_command` rules above stay as the EXECUTOR, but
+# `just generate-proto` is the canonical TRIGGER.
+add_custom_target(proto_gen
+    DEPENDS ${PROTO_SRCS} ${PROTO_HDRS} ${GRPC_SRCS} ${GRPC_HDRS}
+)
+
 # Proto library
 add_library(angzarr_proto STATIC ${PROTO_SRCS} ${GRPC_SRCS})
-target_include_directories(angzarr_proto PUBLIC ${PROTO_GEN_DIR})
+target_include_directories(angzarr_proto PUBLIC
+    ${PROTO_GEN_DIR}
+    # Compatibility shim for legacy `#include "angzarr/foo.pb.h"` and
+    # `#include "examples/foo.pb.h"` paths — examples-cpp/main/shim/include
+    # holds thin redirect headers that pull in the post-2026-04-19
+    # `angzarr_client/proto/{angzarr,examples}/foo.pb.h` and the namespace
+    # alias headers (`angzarr/proto_aliases.hpp` + `angzarr/examples_proto_aliases.hpp`).
+    ${CMAKE_CURRENT_SOURCE_DIR}/shim/include
+)
 target_link_libraries(angzarr_proto PUBLIC
     protobuf::libprotobuf
     gRPC::grpc++
@@ -89,8 +129,12 @@ add_subdirectory(hand/saga-table)
 add_subdirectory(hand/saga-player)
 add_subdirectory(hand-flow-oo)
 add_subdirectory(prj-output-oo)
-# TODO: Fix tournament/agg and hand/upc compile errors (handler signatures, missing UpcasterRouter)
-# add_subdirectory(tournament/agg)
+add_subdirectory(tournament/agg)
+# Phase I-Cpp-v3 — new modules.
+add_subdirectory(reservation/agg)
+add_subdirectory(reservation/pmg)
+add_subdirectory(table/saga-tournament-h4h)
+# TODO: Fix hand/upc (missing UpcasterRouter shim)
 # add_subdirectory(hand/upc)
 
 # Functional-style examples (superseded by OO variants above)

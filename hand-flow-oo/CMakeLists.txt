@@ -1,5 +1,6 @@
 add_executable(pmg-hand-flow-oo
     src/main.cpp
+    src/hand_flow_phases.cpp
 )
 
 target_include_directories(pmg-hand-flow-oo PRIVATE

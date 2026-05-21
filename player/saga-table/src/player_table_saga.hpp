@@ -9,8 +9,8 @@ namespace player {
 namespace saga {
 
 /// Create the player-table saga event router.
-/// Reacts to PlayerSittingOut and PlayerReturningToPlay events from Player domain.
-/// Emits PlayerSatOut and PlayerSatIn facts to Table domain.
+/// Reacts to PlayerSittingOut and PlayerReturningToPlay events from Player
+/// domain. Emits PlayerSatOut and PlayerSatIn facts to Table domain.
 angzarr::EventRouter create_player_table_router();
 
 /// Set source root for handler access (call before processing).

@@ -8,38 +8,45 @@ namespace player {
 
 /// Player aggregate - OO style using CRTP pattern.
 class Player : public angzarr::Aggregate<Player, PlayerState> {
-   public:
-    static constexpr const char* DOMAIN = "player";
+ public:
+  static constexpr const char* DOMAIN = "player";
 
-    Player();
+  Player();
 
-    /// Apply a single event to state (called by base class).
-    void apply_event(PlayerState& state, const google::protobuf::Any& event_any) {
-        PlayerState::apply_event(state, event_any);
-    }
+  /// Apply a single event to state (called by base class).
+  void apply_event(PlayerState& state, const google::protobuf::Any& event_any) {
+    PlayerState::apply_event(state, event_any);
+  }
 
-    // State accessors
-    bool exists() const { return state_.exists(); }
-    const std::string& player_id() const { return state_.player_id; }
-    const std::string& display_name() const { return state_.display_name; }
-    const std::string& email() const { return state_.email; }
-    examples::PlayerType player_type() const { return state_.player_type; }
-    const std::string& ai_model_id() const { return state_.ai_model_id; }
-    int64_t bankroll() const { return state_.bankroll; }
-    int64_t reserved_funds() const { return state_.reserved_funds; }
-    int64_t available_balance() const { return state_.available_balance(); }
-    bool is_ai() const { return state_.is_ai(); }
+  // State accessors
+  bool exists() const { return state_.exists(); }
+  const std::string& player_id() const { return state_.player_id; }
+  const std::string& display_name() const { return state_.display_name; }
+  const std::string& email() const { return state_.email; }
+  examples::PlayerType player_type() const { return state_.player_type; }
+  const std::string& ai_model_id() const { return state_.ai_model_id; }
+  int64_t bankroll() const { return state_.bankroll; }
+  int64_t reserved_funds() const { return state_.reserved_funds; }
+  int64_t available_balance() const { return state_.available_balance(); }
+  bool is_ai() const { return state_.is_ai(); }
 
-    // Command handlers
-    examples::PlayerRegistered handle_register_player(const examples::RegisterPlayer& cmd);
-    examples::FundsDeposited handle_deposit_funds(const examples::DepositFunds& cmd);
-    examples::FundsWithdrawn handle_withdraw_funds(const examples::WithdrawFunds& cmd);
-    examples::FundsReserved handle_reserve_funds(const examples::ReserveFunds& cmd);
-    examples::FundsReleased handle_release_funds(const examples::ReleaseFunds& cmd);
-    examples::FundsTransferred handle_transfer_funds(const examples::TransferFunds& cmd);
+  // Command handlers
+  examples::PlayerRegistered handle_register_player(
+      const examples::RegisterPlayer& cmd);
+  examples::FundsDeposited handle_deposit_funds(
+      const examples::DepositFunds& cmd);
+  examples::FundsWithdrawn handle_withdraw_funds(
+      const examples::WithdrawFunds& cmd);
+  examples::FundsReserved handle_reserve_funds(
+      const examples::ReserveFunds& cmd);
+  examples::FundsReleased handle_release_funds(
+      const examples::ReleaseFunds& cmd);
+  examples::FundsTransferred handle_transfer_funds(
+      const examples::TransferFunds& cmd);
 
-    // Rejection handler for JoinTable rejection
-    examples::FundsReleased handle_join_rejected(const angzarr::Notification& notification);
+  // Rejection handler for JoinTable rejection
+  examples::FundsReleased handle_join_rejected(
+      const angzarr::Notification& notification);
 };
 
 }  // namespace player

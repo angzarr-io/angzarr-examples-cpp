@@ -20,48 +20,51 @@ using namespace angzarr::proto::examples;
 enum class HandPhase { AwaitingDeal, Dealing, Blinds, Betting, Complete };
 
 struct HandFlowState {
-    std::string hand_id;
-    HandPhase phase = HandPhase::AwaitingDeal;
-    int32_t player_count = 0;
+  std::string hand_id;
+  HandPhase phase = HandPhase::AwaitingDeal;
+  int32_t player_count = 0;
 };
 // docs:end:pm_state_oo
 // docs:end:pm_state
 
 // docs:start:pm_handler
 class HandFlowPM : public ProcessManager<HandFlowState> {
-   public:
-    std::vector<CommandBook> handle_hand_started(const HandStarted& event, HandFlowState& state) {
-        state.hand_id = event.hand_id();
-        state.phase = HandPhase::Dealing;
-        state.player_count = event.player_count();
+ public:
+  std::vector<CommandBook> handle_hand_started(const HandStarted& event,
+                                               HandFlowState& state) {
+    state.hand_id = event.hand_id();
+    state.phase = HandPhase::Dealing;
+    state.player_count = event.player_count();
 
-        DealCards cmd;
-        cmd.set_hand_id(event.hand_id());
-        cmd.set_player_count(event.player_count());
-        return {build_command("hand", cmd)};
-    }
+    DealCards cmd;
+    cmd.set_hand_id(event.hand_id());
+    cmd.set_player_count(event.player_count());
+    return {build_command("hand", cmd)};
+  }
 
-    std::vector<CommandBook> handle_cards_dealt(const CardsDealt& event, HandFlowState& state) {
-        state.phase = HandPhase::Blinds;
+  std::vector<CommandBook> handle_cards_dealt(const CardsDealt& event,
+                                              HandFlowState& state) {
+    state.phase = HandPhase::Blinds;
 
-        PostBlinds cmd;
-        cmd.set_hand_id(state.hand_id);
-        return {build_command("hand", cmd)};
-    }
+    PostBlinds cmd;
+    cmd.set_hand_id(state.hand_id);
+    return {build_command("hand", cmd)};
+  }
 
-    std::vector<CommandBook> handle_hand_complete(const HandComplete& event, HandFlowState& state) {
-        state.phase = HandPhase::Complete;
+  std::vector<CommandBook> handle_hand_complete(const HandComplete& event,
+                                                HandFlowState& state) {
+    state.phase = HandPhase::Complete;
 
-        EndHand cmd;
-        cmd.set_hand_id(state.hand_id);
-        cmd.set_winner_id(event.winner_id());
-        return {build_command("table", cmd)};
-    }
+    EndHand cmd;
+    cmd.set_hand_id(state.hand_id);
+    cmd.set_winner_id(event.winner_id());
+    return {build_command("table", cmd)};
+  }
 };
 // docs:end:pm_handler
 
 int main() {
-    HandFlowPM pm;
-    run_process_manager("pmg-hand-flow", 50393, pm);
-    return 0;
+  HandFlowPM pm;
+  run_process_manager("pmg-hand-flow", 50393, pm);
+  return 0;
 }

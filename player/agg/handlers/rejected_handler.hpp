@@ -13,8 +13,8 @@ namespace handlers {
  * Called when the JoinTable command (issued by saga-player-table after
  * FundsReserved) is rejected by the Table aggregate.
  */
-examples::FundsReleased handle_join_rejected(const angzarr::Notification& notification,
-                                             const PlayerState& state);
+examples::FundsReleased handle_join_rejected(
+    const angzarr::Notification& notification, const PlayerState& state);
 
 }  // namespace handlers
 }  // namespace player

@@ -9,46 +9,51 @@ namespace handlers {
 
 // docs:start:deposit_guard
 void deposit_funds_guard(const PlayerState& state) {
-    if (!state.exists()) {
-        throw angzarr::CommandRejectedError::precondition_failed("Player does not exist");
-    }
+  if (!state.exists()) {
+    throw angzarr::CommandRejectedError::precondition_failed(
+        "Player does not exist");
+  }
 }
 // docs:end:deposit_guard
 
 // docs:start:deposit_validate
 int64_t deposit_funds_validate(const examples::DepositFunds& cmd) {
-    int64_t amount = cmd.has_amount() ? cmd.amount().amount() : 0;
-    if (amount <= 0) {
-        throw angzarr::CommandRejectedError::invalid_argument("amount must be positive");
-    }
-    return amount;
+  int64_t amount = cmd.has_amount() ? cmd.amount().amount() : 0;
+  if (amount <= 0) {
+    throw angzarr::CommandRejectedError::invalid_argument(
+        "amount must be positive");
+  }
+  return amount;
 }
 // docs:end:deposit_validate
 
 // docs:start:deposit_compute
-examples::FundsDeposited deposit_funds_compute(const examples::DepositFunds& cmd,
-                                               const PlayerState& state, int64_t amount) {
-    int64_t new_balance = state.bankroll + amount;
+examples::FundsDeposited deposit_funds_compute(
+    const examples::DepositFunds& cmd, const PlayerState& state,
+    int64_t amount) {
+  int64_t new_balance = state.bankroll + amount;
 
-    examples::FundsDeposited event;
-    event.mutable_amount()->CopyFrom(cmd.amount());
-    event.mutable_new_balance()->set_amount(new_balance);
-    event.mutable_new_balance()->set_currency_code("CHIPS");
+  examples::FundsDeposited event;
+  event.mutable_amount()->CopyFrom(cmd.amount());
+  event.mutable_new_balance()->set_amount(new_balance);
+  event.mutable_new_balance()->set_currency_code("CHIPS");
 
-    auto now = std::chrono::system_clock::now();
-    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-    event.mutable_deposited_at()->set_seconds(seconds);
+  auto now = std::chrono::system_clock::now();
+  auto seconds =
+      std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch())
+          .count();
+  event.mutable_deposited_at()->set_seconds(seconds);
 
-    return event;
+  return event;
 }
 // docs:end:deposit_compute
 
 // docs:start:polyglot_handler
 examples::FundsDeposited handle_deposit_funds(const examples::DepositFunds& cmd,
                                               const PlayerState& state) {
-    deposit_funds_guard(state);
-    int64_t amount = deposit_funds_validate(cmd);
-    return deposit_funds_compute(cmd, state, amount);
+  deposit_funds_guard(state);
+  int64_t amount = deposit_funds_validate(cmd);
+  return deposit_funds_compute(cmd, state, amount);
 }
 // docs:end:polyglot_handler
 

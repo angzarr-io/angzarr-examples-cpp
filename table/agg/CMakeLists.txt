@@ -6,6 +6,9 @@ add_executable(agg-table
     handlers/leave_handler.cpp
     handlers/start_hand_handler.cpp
     handlers/end_hand_handler.cpp
+    handlers/hand_for_hand_handlers.cpp
+    # PR #12 — ChangeSeats handler.
+    handlers/change_seats_handler.cpp
 )
 
 target_include_directories(agg-table PRIVATE

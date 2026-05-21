@@ -6,6 +6,7 @@
 
 // GTest must be included before cucumber-cpp autodetect for framework detection
 #include <gtest/gtest.h>
+
 #include <cucumber-cpp/autodetect.hpp>
 
 // The autodetect header handles everything - it provides a main()

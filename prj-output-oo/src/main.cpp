@@ -38,29 +38,29 @@ const char* DEFAULT_LOG_FILE = "hand_log_oo.txt";
 static std::ofstream g_log_file;
 
 void write_log(const std::string& msg) {
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-    std::ostringstream ss;
-    ss << std::put_time(std::gmtime(&time), "%Y-%m-%dT%H:%M:%SZ");
+  auto now = std::chrono::system_clock::now();
+  auto time = std::chrono::system_clock::to_time_t(now);
+  std::ostringstream ss;
+  ss << std::put_time(std::gmtime(&time), "%Y-%m-%dT%H:%M:%SZ");
 
-    std::string line = "[" + ss.str() + "] " + msg;
-    if (g_log_file.is_open()) {
-        g_log_file << line << std::endl;
-        g_log_file.flush();
-    }
-    std::cout << line << std::endl;
+  std::string line = "[" + ss.str() + "] " + msg;
+  if (g_log_file.is_open()) {
+    g_log_file << line << std::endl;
+    g_log_file.flush();
+  }
+  std::cout << line << std::endl;
 }
 
 std::string truncate_id(const std::string& root) {
-    if (root.size() >= 4) {
-        std::ostringstream ss;
-        for (int i = 0; i < 4; ++i) {
-            ss << std::hex << std::setfill('0') << std::setw(2)
-               << (static_cast<unsigned int>(static_cast<unsigned char>(root[i])));
-        }
-        return ss.str();
+  if (root.size() >= 4) {
+    std::ostringstream ss;
+    for (int i = 0; i < 4; ++i) {
+      ss << std::hex << std::setfill('0') << std::setw(2)
+         << (static_cast<unsigned int>(static_cast<unsigned char>(root[i])));
     }
-    return root;
+    return ss.str();
+  }
+  return root;
 }
 
 // docs:start:projector_class_oo
@@ -75,30 +75,62 @@ std::string truncate_id(const std::string& root) {
  * would require extending the base class.
  */
 class OutputProjector : public angzarr::Projector {
-   public:
-    ANGZARR_PROJECTOR("output", "player")
+ public:
+  ANGZARR_PROJECTOR("output", "player")
 
-    ANGZARR_PROJECTS(PlayerRegistered)
-    (const examples::PlayerRegistered& event) {
-        write_log("PLAYER registered: " + event.display_name() + " (" + event.email() + ")");
-        return angzarr::Projection::upsert("log", "registered");
-    }
+  OutputProjector() {
+    // Constructor-side registration replaces ANGZARR_PROJECTS macros (disabled
+    // in angzarr-client-cpp/include/angzarr/macros.hpp:163 — they relied on
+    // `decltype(this)` at class scope).
+    register_projector_handler(
+        "PlayerRegistered",
+        [](angzarr::Projector* self, const google::protobuf::Any& any) {
+          examples::PlayerRegistered event;
+          any.UnpackTo(&event);
+          return static_cast<OutputProjector*>(self)->project_PlayerRegistered(
+              event);
+        });
+    register_projector_handler(
+        "FundsDeposited",
+        [](angzarr::Projector* self, const google::protobuf::Any& any) {
+          examples::FundsDeposited event;
+          any.UnpackTo(&event);
+          return static_cast<OutputProjector*>(self)->project_FundsDeposited(
+              event);
+        });
+    register_projector_handler(
+        "FundsWithdrawn",
+        [](angzarr::Projector* self, const google::protobuf::Any& any) {
+          examples::FundsWithdrawn event;
+          any.UnpackTo(&event);
+          return static_cast<OutputProjector*>(self)->project_FundsWithdrawn(
+              event);
+        });
+  }
 
-    ANGZARR_PROJECTS(FundsDeposited)
-    (const examples::FundsDeposited& event) {
-        int64_t amount = event.has_amount() ? event.amount().amount() : 0;
-        int64_t balance = event.has_new_balance() ? event.new_balance().amount() : 0;
-        write_log("PLAYER deposited " + std::to_string(amount) +
-                  ", balance: " + std::to_string(balance));
-        return angzarr::Projection::upsert("log", "deposited");
-    }
+  angzarr::Projection project_PlayerRegistered(
+      const examples::PlayerRegistered& event) {
+    write_log("PLAYER registered: " + event.display_name() + " (" +
+              event.email() + ")");
+    return angzarr::Projection::upsert("log", "registered");
+  }
 
-    ANGZARR_PROJECTS(FundsWithdrawn)
-    (const examples::FundsWithdrawn& event) {
-        int64_t amount = event.has_amount() ? event.amount().amount() : 0;
-        write_log("PLAYER withdrew " + std::to_string(amount));
-        return angzarr::Projection::upsert("log", "withdrawn");
-    }
+  angzarr::Projection project_FundsDeposited(
+      const examples::FundsDeposited& event) {
+    int64_t amount = event.has_amount() ? event.amount().amount() : 0;
+    int64_t balance =
+        event.has_new_balance() ? event.new_balance().amount() : 0;
+    write_log("PLAYER deposited " + std::to_string(amount) +
+              ", balance: " + std::to_string(balance));
+    return angzarr::Projection::upsert("log", "deposited");
+  }
+
+  angzarr::Projection project_FundsWithdrawn(
+      const examples::FundsWithdrawn& event) {
+    int64_t amount = event.has_amount() ? event.amount().amount() : 0;
+    write_log("PLAYER withdrew " + std::to_string(amount));
+    return angzarr::Projection::upsert("log", "withdrawn");
+  }
 };
 // docs:end:projector_class_oo
 
@@ -107,138 +139,146 @@ class OutputProjector : public angzarr::Projector {
  * gRPC service for Output projector using OO pattern.
  */
 class OutputProjectorService final : public angzarr::ProjectorService::Service {
-   public:
-    grpc::Status Handle(grpc::ServerContext* context, const angzarr::EventBook* request,
-                        angzarr::Projection* response) override {
-        (void)context;
-        uint32_t seq = 0;
+ public:
+  grpc::Status Handle(
+      grpc::ServerContext* context, const angzarr::EventBook* request,
+      ::angzarr_client::proto::angzarr::v1::Projection* response) override {
+    (void)context;
+    uint32_t seq = 0;
 
-        // Use the OO projector for player domain
-        if (request->cover().domain() == "player") {
-            auto projections = projector_.project(*request);
-            for (const auto& page : request->pages()) {
-                if (page.has_header() && page.header().has_sequence()) {
-                    seq = page.header().sequence();
-                }
-            }
-        } else {
-            // Handle other domains inline for this example
-            for (const auto& page : request->pages()) {
-                if (page.has_header() && page.header().has_sequence()) {
-                    seq = page.header().sequence();
-                }
-                const auto& event_any = page.event();
-                handle_other_domain(event_any, request->cover().domain());
-            }
+    // Use the OO projector for player domain
+    if (request->cover().domain() == "player") {
+      auto projections = projector_.project(*request);
+      (void)projections;  // Player projections write through write_log; struct
+                          // results not surfaced over gRPC in this example.
+      for (const auto& page : request->pages()) {
+        if (page.has_header() && page.header().has_sequence()) {
+          seq = page.header().sequence();
         }
-
-        response->mutable_cover()->CopyFrom(request->cover());
-        response->set_projector("output");
-        response->set_sequence(seq);
-
-        return grpc::Status::OK;
+      }
+    } else {
+      // Handle other domains inline for this example
+      for (const auto& page : request->pages()) {
+        if (page.has_header() && page.header().has_sequence()) {
+          seq = page.header().sequence();
+        }
+        const auto& event_any = page.event();
+        handle_other_domain(event_any, request->cover().domain());
+      }
     }
 
-    grpc::Status HandleSpeculative(grpc::ServerContext* context, const angzarr::EventBook* request,
-                                   angzarr::Projection* response) override {
-        return Handle(context, request, response);
+    response->mutable_cover()->CopyFrom(request->cover());
+    response->set_projector("output");
+    response->set_sequence(seq);
+
+    return grpc::Status::OK;
+  }
+
+  grpc::Status HandleSpeculative(
+      grpc::ServerContext* context, const angzarr::EventBook* request,
+      ::angzarr_client::proto::angzarr::v1::Projection* response) override {
+    return Handle(context, request, response);
+  }
+
+ private:
+  void handle_other_domain(const google::protobuf::Any& event_any,
+                           const std::string& domain) {
+    const std::string& type_url = event_any.type_url();
+
+    // Table events
+    if (type_url.find("TableCreated") != std::string::npos) {
+      examples::TableCreated event;
+      event_any.UnpackTo(&event);
+      write_log("TABLE created: " + event.table_name() + " (" +
+                examples::GameVariant_Name(event.game_variant()) + ")");
+    } else if (type_url.find("PlayerJoined") != std::string::npos) {
+      examples::PlayerJoined event;
+      event_any.UnpackTo(&event);
+      write_log("TABLE player " + truncate_id(event.player_root()) +
+                " joined with " + std::to_string(event.stack()) + " chips");
+    } else if (type_url.find("HandStarted") != std::string::npos) {
+      examples::HandStarted event;
+      event_any.UnpackTo(&event);
+      write_log("TABLE hand #" + std::to_string(event.hand_number()) +
+                " started, " + std::to_string(event.active_players_size()) +
+                " players, dealer at position " +
+                std::to_string(event.dealer_position()));
     }
-
-   private:
-    void handle_other_domain(const google::protobuf::Any& event_any, const std::string& domain) {
-        const std::string& type_url = event_any.type_url();
-
-        // Table events
-        if (type_url.find("TableCreated") != std::string::npos) {
-            examples::TableCreated event;
-            event_any.UnpackTo(&event);
-            write_log("TABLE created: " + event.table_name() + " (" +
-                      examples::GameVariant_Name(event.game_variant()) + ")");
-        } else if (type_url.find("PlayerJoined") != std::string::npos) {
-            examples::PlayerJoined event;
-            event_any.UnpackTo(&event);
-            write_log("TABLE player " + truncate_id(event.player_root()) + " joined with " +
-                      std::to_string(event.stack()) + " chips");
-        } else if (type_url.find("HandStarted") != std::string::npos) {
-            examples::HandStarted event;
-            event_any.UnpackTo(&event);
-            write_log("TABLE hand #" + std::to_string(event.hand_number()) + " started, " +
-                      std::to_string(event.active_players_size()) +
-                      " players, dealer at position " + std::to_string(event.dealer_position()));
-        }
-        // Hand events
-        else if (type_url.find("CardsDealt") != std::string::npos) {
-            examples::CardsDealt event;
-            event_any.UnpackTo(&event);
-            write_log("HAND cards dealt to " + std::to_string(event.player_cards_size()) +
-                      " players");
-        } else if (type_url.find("BlindPosted") != std::string::npos) {
-            examples::BlindPosted event;
-            event_any.UnpackTo(&event);
-            write_log("HAND player " + truncate_id(event.player_root()) + " posted " +
-                      examples::BlindType_Name(event.blind_type()) +
-                      " blind: " + std::to_string(event.amount()));
-        } else if (type_url.find("ActionTaken") != std::string::npos) {
-            examples::ActionTaken event;
-            event_any.UnpackTo(&event);
-            write_log("HAND player " + truncate_id(event.player_root()) + ": " +
-                      examples::ActionType_Name(event.action()) + " " +
-                      std::to_string(event.amount()));
-        } else if (type_url.find("PotAwarded") != std::string::npos) {
-            examples::PotAwarded event;
-            event_any.UnpackTo(&event);
-            std::string winners;
-            for (const auto& w : event.winners()) {
-                if (!winners.empty()) winners += ", ";
-                winners += truncate_id(w.player_root()) + " wins " + std::to_string(w.amount());
-            }
-            write_log("HAND pot awarded: " + winners);
-        } else if (type_url.find("HandComplete") != std::string::npos) {
-            examples::HandComplete event;
-            event_any.UnpackTo(&event);
-            write_log("HAND #" + std::to_string(event.hand_number()) + " complete");
-        }
+    // Hand events
+    else if (type_url.find("CardsDealt") != std::string::npos) {
+      examples::CardsDealt event;
+      event_any.UnpackTo(&event);
+      write_log("HAND cards dealt to " +
+                std::to_string(event.player_cards_size()) + " players");
+    } else if (type_url.find("BlindPosted") != std::string::npos) {
+      examples::BlindPosted event;
+      event_any.UnpackTo(&event);
+      write_log("HAND player " + truncate_id(event.player_root()) + " posted " +
+                event.blind_type() +
+                " blind: " + std::to_string(event.amount()));
+    } else if (type_url.find("ActionTaken") != std::string::npos) {
+      examples::ActionTaken event;
+      event_any.UnpackTo(&event);
+      write_log("HAND player " + truncate_id(event.player_root()) + ": " +
+                examples::ActionType_Name(event.action()) + " " +
+                std::to_string(event.amount()));
+    } else if (type_url.find("PotAwarded") != std::string::npos) {
+      examples::PotAwarded event;
+      event_any.UnpackTo(&event);
+      std::string winners;
+      for (const auto& w : event.winners()) {
+        if (!winners.empty()) winners += ", ";
+        winners += truncate_id(w.player_root()) + " wins " +
+                   std::to_string(w.amount());
+      }
+      write_log("HAND pot awarded: " + winners);
+    } else if (type_url.find("HandComplete") != std::string::npos) {
+      examples::HandComplete event;
+      event_any.UnpackTo(&event);
+      write_log("HAND #" + std::to_string(event.hand_number()) + " complete");
     }
+  }
 
-    OutputProjector projector_;
+  OutputProjector projector_;
 };
 // docs:end:projector_oo_service
 
 }  // anonymous namespace
 
 int main(int argc, char** argv) {
-    int port = DEFAULT_PORT;
-    std::string log_file = DEFAULT_LOG_FILE;
+  int port = DEFAULT_PORT;
+  std::string log_file = DEFAULT_LOG_FILE;
 
-    if (const char* env_port = std::getenv("GRPC_PORT")) {
-        port = std::stoi(env_port);
-    } else if (argc > 1) {
-        port = std::stoi(argv[1]);
-    }
+  if (const char* env_port = std::getenv("GRPC_PORT")) {
+    port = std::stoi(env_port);
+  } else if (argc > 1) {
+    port = std::stoi(argv[1]);
+  }
 
-    if (const char* env_log = std::getenv("HAND_LOG_FILE")) {
-        log_file = env_log;
-    }
+  if (const char* env_log = std::getenv("HAND_LOG_FILE")) {
+    log_file = env_log;
+  }
 
-    // Open log file
-    g_log_file.open(log_file, std::ios::app);
+  // Open log file
+  g_log_file.open(log_file, std::ios::app);
 
-    std::string server_address = "0.0.0.0:" + std::to_string(port);
+  std::string server_address = "0.0.0.0:" + std::to_string(port);
 
-    grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
 
-    OutputProjectorService service;
+  OutputProjectorService service;
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService(&service);
+  grpc::ServerBuilder builder;
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+  builder.RegisterService(&service);
 
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Output projector (OO) listening on " << server_address << std::endl;
-    std::cout << "Logging to: " << log_file << std::endl;
+  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+  std::cout << "Output projector (OO) listening on " << server_address
+            << std::endl;
+  std::cout << "Logging to: " << log_file << std::endl;
 
-    server->Wait();
+  server->Wait();
 
-    g_log_file.close();
-    return 0;
+  g_log_file.close();
+  return 0;
 }

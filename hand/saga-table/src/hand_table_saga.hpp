@@ -13,7 +13,8 @@ namespace saga {
 /// Sends EndHand commands to Table domain.
 angzarr::EventRouter create_hand_table_router();
 
-// Note: Handlers are internal to the router - only create_hand_table_router is public
+// Note: Handlers are internal to the router - only create_hand_table_router is
+// public
 
 }  // namespace saga
 }  // namespace hand

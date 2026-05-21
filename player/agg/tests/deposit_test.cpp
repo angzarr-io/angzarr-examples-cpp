@@ -11,49 +11,50 @@ namespace handlers {
 
 // docs:start:unit_test_deposit
 TEST(DepositHandlerTest, DepositIncreasesBankroll) {
-    PlayerState state;
-    state.player_id = "player_1";
-    state.bankroll = 1000;
+  PlayerState state;
+  state.player_id = "player_1";
+  state.bankroll = 1000;
 
-    examples::DepositFunds cmd;
-    cmd.mutable_amount()->set_amount(500);
-    cmd.mutable_amount()->set_currency_code("CHIPS");
+  examples::DepositFunds cmd;
+  cmd.mutable_amount()->set_amount(500);
+  cmd.mutable_amount()->set_currency_code("CHIPS");
 
-    auto event = deposit_funds_compute(cmd, state, 500);
+  auto event = deposit_funds_compute(cmd, state, 500);
 
-    EXPECT_EQ(event.new_balance().amount(), 1500);
+  EXPECT_EQ(event.new_balance().amount(), 1500);
 }
 
 TEST(DepositHandlerTest, RejectsNonExistentPlayer) {
-    PlayerState state;  // player_id empty = doesn't exist
+  PlayerState state;  // player_id empty = doesn't exist
 
-    EXPECT_THROW(
-        {
-            try {
-                deposit_funds_guard(state);
-            } catch (const angzarr::CommandRejectedError& e) {
-                EXPECT_NE(std::string(e.what()).find("does not exist"), std::string::npos);
-                throw;
-            }
-        },
-        angzarr::CommandRejectedError);
+  EXPECT_THROW(
+      {
+        try {
+          deposit_funds_guard(state);
+        } catch (const angzarr::CommandRejectedError& e) {
+          EXPECT_NE(std::string(e.what()).find("does not exist"),
+                    std::string::npos);
+          throw;
+        }
+      },
+      angzarr::CommandRejectedError);
 }
 
 TEST(DepositHandlerTest, RejectsZeroAmount) {
-    examples::DepositFunds cmd;
-    cmd.mutable_amount()->set_amount(0);
-    cmd.mutable_amount()->set_currency_code("CHIPS");
+  examples::DepositFunds cmd;
+  cmd.mutable_amount()->set_amount(0);
+  cmd.mutable_amount()->set_currency_code("CHIPS");
 
-    EXPECT_THROW(
-        {
-            try {
-                deposit_funds_validate(cmd);
-            } catch (const angzarr::CommandRejectedError& e) {
-                EXPECT_NE(std::string(e.what()).find("positive"), std::string::npos);
-                throw;
-            }
-        },
-        angzarr::CommandRejectedError);
+  EXPECT_THROW(
+      {
+        try {
+          deposit_funds_validate(cmd);
+        } catch (const angzarr::CommandRejectedError& e) {
+          EXPECT_NE(std::string(e.what()).find("positive"), std::string::npos);
+          throw;
+        }
+      },
+      angzarr::CommandRejectedError);
 }
 // docs:end:unit_test_deposit
 

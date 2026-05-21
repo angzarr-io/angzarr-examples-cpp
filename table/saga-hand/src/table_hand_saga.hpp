@@ -13,7 +13,8 @@ namespace saga {
 /// Sends DealCards commands to Hand domain.
 angzarr::EventRouter create_table_hand_router();
 
-// Note: Handlers are internal to the router - only create_table_hand_router is public
+// Note: Handlers are internal to the router - only create_table_hand_router is
+// public
 
 }  // namespace saga
 }  // namespace table

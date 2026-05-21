@@ -7,8 +7,8 @@ namespace player {
 namespace handlers {
 
 /// Handle WithdrawFunds command.
-examples::FundsWithdrawn handle_withdraw_funds(const examples::WithdrawFunds& cmd,
-                                         const PlayerState& state);
+examples::FundsWithdrawn handle_withdraw_funds(
+    const examples::WithdrawFunds& cmd, const PlayerState& state);
 
 }  // namespace handlers
 }  // namespace player

@@ -9,49 +9,52 @@
 namespace table {
 namespace handlers {
 
-examples::HandEnded handle_end_hand(const examples::EndHand& cmd, const TableState& state) {
-    // Guard
-    if (!state.exists()) {
-        throw angzarr::CommandRejectedError::not_found("Table does not exist");
+examples::HandEnded handle_end_hand(const examples::EndHand& cmd,
+                                    const TableState& state) {
+  // Guard
+  if (!state.exists()) {
+    throw angzarr::CommandRejectedError::not_found("Table does not exist");
+  }
+  if (state.status != "in_hand") {
+    throw angzarr::CommandRejectedError::precondition_failed(
+        "No hand in progress");
+  }
+  if (cmd.hand_root() != state.current_hand_root) {
+    throw angzarr::CommandRejectedError::invalid_argument("Hand root mismatch");
+  }
+
+  // Compute stack changes from results
+  std::map<std::string, int64_t> stack_changes;
+  for (const auto& result : cmd.results()) {
+    // Use winner_root directly as the key (it's a string-type player
+    // identifier)
+    const std::string& player_root = result.winner_root();
+
+    if (stack_changes.find(player_root) == stack_changes.end()) {
+      stack_changes[player_root] = 0;
     }
-    if (state.status != "in_hand") {
-        throw angzarr::CommandRejectedError::precondition_failed("No hand in progress");
-    }
-    if (cmd.hand_root() != state.current_hand_root) {
-        throw angzarr::CommandRejectedError::invalid_argument("Hand root mismatch");
-    }
+    stack_changes[player_root] += result.amount();
+  }
 
-    // Compute stack changes from results
-    std::map<std::string, int64_t> stack_changes;
-    for (const auto& result : cmd.results()) {
-        // Use winner_root directly as the key (it's a string-type player identifier)
-        const std::string& player_root = result.winner_root();
+  auto now = std::chrono::system_clock::now();
+  auto timestamp = google::protobuf::util::TimeUtil::TimeTToTimestamp(
+      std::chrono::system_clock::to_time_t(now));
 
-        if (stack_changes.find(player_root) == stack_changes.end()) {
-            stack_changes[player_root] = 0;
-        }
-        stack_changes[player_root] += result.amount();
-    }
+  examples::HandEnded event;
+  event.set_hand_root(cmd.hand_root());
+  *event.mutable_ended_at() = timestamp;
 
-    auto now = std::chrono::system_clock::now();
-    auto timestamp = google::protobuf::util::TimeUtil::TimeTToTimestamp(
-        std::chrono::system_clock::to_time_t(now));
+  // Copy stack changes
+  for (const auto& [player_hex, delta] : stack_changes) {
+    (*event.mutable_stack_changes())[player_hex] = delta;
+  }
 
-    examples::HandEnded event;
-    event.set_hand_root(cmd.hand_root());
-    *event.mutable_ended_at() = timestamp;
+  // Copy results
+  for (const auto& result : cmd.results()) {
+    *event.add_results() = result;
+  }
 
-    // Copy stack changes
-    for (const auto& [player_hex, delta] : stack_changes) {
-        (*event.mutable_stack_changes())[player_hex] = delta;
-    }
-
-    // Copy results
-    for (const auto& result : cmd.results()) {
-        *event.add_results() = result;
-    }
-
-    return event;
+  return event;
 }
 
 }  // namespace handlers

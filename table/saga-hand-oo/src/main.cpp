@@ -15,7 +15,9 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
+#include "angzarr/destinations.hpp"
 #include "angzarr/macros.hpp"
 #include "angzarr/saga.grpc.pb.h"
 #include "angzarr/saga.hpp"
@@ -39,34 +41,50 @@ constexpr int DEFAULT_PORT = 50412;
  * - ANGZARR_REACTS_TO(EventType) for handle phase handlers
  */
 class TableHandSaga : public angzarr::Saga {
-   public:
-    ANGZARR_SAGA("saga-table-hand", "table", "hand")
+ public:
+  ANGZARR_SAGA("saga-table-hand", "table", "hand")
 
-    /**
-     * Handle phase: translate Table.HandStarted -> Hand.DealCards.
-     *
-     * Called with the source event. Framework handles sequence stamping.
-     */
-    ANGZARR_REACTS_TO(HandStarted)
-    (const examples::HandStarted& event) {
-        examples::DealCards deal_cmd;
-        deal_cmd.set_table_root(event.hand_root());
-        deal_cmd.set_hand_number(event.hand_number());
-        deal_cmd.set_game_variant(event.game_variant());
-        deal_cmd.set_dealer_position(event.dealer_position());
-        deal_cmd.set_small_blind(event.small_blind());
-        deal_cmd.set_big_blind(event.big_blind());
+  TableHandSaga() {
+    // Constructor-side registration replaces ANGZARR_REACTS_TO (disabled
+    // in angzarr-client-cpp/include/angzarr/macros.hpp:161 — it relied on
+    // `decltype(this)` at class scope).
+    register_event_handler(
+        "HandStarted",
+        [](angzarr::Saga* self, const google::protobuf::Any& any,
+           const std::string& corr_id) -> std::vector<angzarr::CommandBook> {
+          examples::HandStarted event;
+          any.UnpackTo(&event);
+          return static_cast<TableHandSaga*>(self)->handle_HandStarted(event,
+                                                                       corr_id);
+        });
+  }
 
-        // Convert SeatSnapshot to PlayerInHand
-        for (const auto& seat : event.active_players()) {
-            auto* player = deal_cmd.add_players();
-            player->set_player_root(seat.player_root());
-            player->set_position(seat.position());
-            player->set_stack(seat.stack());
-        }
+ protected:
+  /**
+   * Handle phase: translate Table.HandStarted -> Hand.DealCards.
+   *
+   * Called with the source event. Framework handles sequence stamping.
+   */
+  std::vector<angzarr::CommandBook> handle_HandStarted(
+      const examples::HandStarted& event, const std::string& corr_id) {
+    examples::DealCards deal_cmd;
+    deal_cmd.set_table_root(event.hand_root());
+    deal_cmd.set_hand_number(event.hand_number());
+    deal_cmd.set_game_variant(event.game_variant());
+    deal_cmd.set_dealer_position(event.dealer_position());
+    deal_cmd.set_small_blind(event.small_blind());
+    deal_cmd.set_big_blind(event.big_blind());
 
-        return deal_cmd;
+    // Convert SeatSnapshot to PlayerInHand
+    for (const auto& seat : event.active_players()) {
+      auto* player = deal_cmd.add_players();
+      player->set_player_root(seat.player_root());
+      player->set_position(seat.position());
+      player->set_stack(seat.stack());
     }
+
+    return pack_commands(deal_cmd, corr_id);
+  }
 };
 // docs:end:saga_class_oo
 
@@ -76,53 +94,57 @@ class TableHandSaga : public angzarr::Saga {
  * Sagas are stateless translators - framework handles sequence stamping.
  */
 class TableHandSagaService final : public angzarr::SagaService::Service {
-   public:
-    grpc::Status Handle(grpc::ServerContext* context, const angzarr::SagaHandleRequest* request,
-                        angzarr::SagaResponse* response) override {
-        (void)context;
-        // No destinations - framework handles sequences
-        std::vector<angzarr::EventBook> destinations;
+ public:
+  grpc::Status Handle(grpc::ServerContext* context,
+                      const angzarr::SagaHandleRequest* request,
+                      angzarr::SagaResponse* response) override {
+    (void)context;
+    std::unordered_map<std::string, uint32_t> seq_map(
+        request->destination_sequences().begin(),
+        request->destination_sequences().end());
+    angzarr::Destinations destinations(seq_map);
 
-        auto result = saga_.dispatch(request->source(), destinations);
+    auto result = saga_.dispatch(request->source(), destinations);
 
-        for (const auto& cmd : result.commands) {
-            *response->add_commands() = cmd;
-        }
-        for (const auto& fact : result.facts) {
-            *response->add_events() = fact;
-        }
-
-        return grpc::Status::OK;
+    for (const auto& cmd : result.commands) {
+      *response->add_commands() = cmd;
+    }
+    for (const auto& fact : result.facts) {
+      *response->add_events() = fact;
     }
 
-   private:
-    TableHandSaga saga_;
+    return grpc::Status::OK;
+  }
+
+ private:
+  TableHandSaga saga_;
 };
 // docs:end:saga_oo_service
 
 }  // anonymous namespace
 
 int main(int argc, char** argv) {
-    int port = DEFAULT_PORT;
-    if (const char* env_port = std::getenv("GRPC_PORT")) {
-        port = std::stoi(env_port);
-    } else if (argc > 1) {
-        port = std::stoi(argv[1]);
-    }
+  int port = DEFAULT_PORT;
+  if (const char* env_port = std::getenv("GRPC_PORT")) {
+    port = std::stoi(env_port);
+  } else if (argc > 1) {
+    port = std::stoi(argv[1]);
+  }
 
-    std::string server_address = "0.0.0.0:" + std::to_string(port);
+  std::string server_address = "0.0.0.0:" + std::to_string(port);
 
-    grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
 
-    TableHandSagaService service;
+  TableHandSagaService service;
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService(&service);
+  grpc::ServerBuilder builder;
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+  builder.RegisterService(&service);
 
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Table->Hand saga (OO) listening on " << server_address << std::endl;
+  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+  std::cout << "Table->Hand saga (OO) listening on " << server_address
+            << std::endl;
 
-    server->Wait();
-    return 0;
+  server->Wait();
+  return 0;
 }

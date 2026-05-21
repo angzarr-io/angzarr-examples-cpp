@@ -6,6 +6,11 @@ add_executable(agg-hand
     handlers/action_handler.cpp
     handlers/deal_community_handler.cpp
     handlers/award_pot_handler.cpp
+    handlers/action_clock_handlers.cpp
+    # PR #12 — 13 new disaster-recovery / stud / button handlers.
+    handlers/misdeal_handlers.cpp
+    handlers/premature_handlers.cpp
+    handlers/stud_handlers.cpp
 )
 
 target_include_directories(agg-hand PRIVATE

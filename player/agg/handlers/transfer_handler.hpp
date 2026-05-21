@@ -7,8 +7,8 @@ namespace player {
 namespace handlers {
 
 /// Handle TransferFunds command.
-examples::FundsTransferred handle_transfer_funds(const examples::TransferFunds& cmd,
-                                           const PlayerState& state);
+examples::FundsTransferred handle_transfer_funds(
+    const examples::TransferFunds& cmd, const PlayerState& state);
 
 }  // namespace handlers
 }  // namespace player

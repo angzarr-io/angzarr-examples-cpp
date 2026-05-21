@@ -13,7 +13,8 @@ namespace saga {
 /// Sends ReleaseFunds commands to Player domain.
 angzarr::EventRouter create_table_player_router();
 
-// Note: Handlers are internal to the router - only create_table_player_router is public
+// Note: Handlers are internal to the router - only create_table_player_router
+// is public
 
 }  // namespace saga
 }  // namespace table

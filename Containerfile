@@ -28,6 +28,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libabsl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# INFRA-1: trust any bind-mounted workspace path (rootless docker friendliness).
+RUN git config --system --add safe.directory '*' \
+ && git config --system --add safe.directory '/workspace' \
+ && git config --system --add safe.directory '/angzarr'
+
 WORKDIR /app
 
 # ============================================================================

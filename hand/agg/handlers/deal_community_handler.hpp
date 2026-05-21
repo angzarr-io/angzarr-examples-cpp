@@ -7,8 +7,8 @@ namespace hand {
 namespace handlers {
 
 /// Handle DealCommunityCards command.
-examples::CommunityCardsDealt handle_deal_community_cards(const examples::DealCommunityCards& cmd,
-                                                    const HandState& state);
+examples::CommunityCardsDealt handle_deal_community_cards(
+    const examples::DealCommunityCards& cmd, const HandState& state);
 
 }  // namespace handlers
 }  // namespace hand

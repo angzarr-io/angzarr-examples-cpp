@@ -53,6 +53,7 @@ set(PLAYER_HANDLER_SOURCES
     ${CMAKE_SOURCE_DIR}/player/agg/handlers/release_handler.cpp
     ${CMAKE_SOURCE_DIR}/player/agg/handlers/transfer_handler.cpp
     ${CMAKE_SOURCE_DIR}/player/agg/handlers/rejected_handler.cpp
+    ${CMAKE_SOURCE_DIR}/player/agg/handlers/deduct_reserved_handler.cpp
 )
 
 set(TABLE_HANDLER_SOURCES
@@ -62,6 +63,11 @@ set(TABLE_HANDLER_SOURCES
     ${CMAKE_SOURCE_DIR}/table/agg/handlers/leave_handler.cpp
     ${CMAKE_SOURCE_DIR}/table/agg/handlers/start_hand_handler.cpp
     ${CMAKE_SOURCE_DIR}/table/agg/handlers/end_hand_handler.cpp
+    ${CMAKE_SOURCE_DIR}/table/agg/handlers/hand_for_hand_handlers.cpp
+    ${CMAKE_SOURCE_DIR}/table/agg/handlers/seat_player_handler.cpp
+    ${CMAKE_SOURCE_DIR}/table/agg/handlers/add_rebuy_chips_handler.cpp
+    # PR #12 — ChangeSeats handler.
+    ${CMAKE_SOURCE_DIR}/table/agg/handlers/change_seats_handler.cpp
 )
 
 set(HAND_HANDLER_SOURCES
@@ -71,6 +77,32 @@ set(HAND_HANDLER_SOURCES
     ${CMAKE_SOURCE_DIR}/hand/agg/handlers/action_handler.cpp
     ${CMAKE_SOURCE_DIR}/hand/agg/handlers/deal_community_handler.cpp
     ${CMAKE_SOURCE_DIR}/hand/agg/handlers/award_pot_handler.cpp
+    ${CMAKE_SOURCE_DIR}/hand/agg/handlers/action_clock_handlers.cpp
+    # PR #12 — 13 new disaster-recovery / stud / button handlers.
+    ${CMAKE_SOURCE_DIR}/hand/agg/handlers/misdeal_handlers.cpp
+    ${CMAKE_SOURCE_DIR}/hand/agg/handlers/premature_handlers.cpp
+    ${CMAKE_SOURCE_DIR}/hand/agg/handlers/stud_handlers.cpp
+)
+
+# Phase I-Cpp-v3 HIGH-EX-2.4.x — Tournament handlers.
+set(TOURNAMENT_HANDLER_SOURCES
+    ${CMAKE_SOURCE_DIR}/tournament/agg/src/tournament_state.cpp
+    ${CMAKE_SOURCE_DIR}/tournament/agg/handlers/create_handler.cpp
+    ${CMAKE_SOURCE_DIR}/tournament/agg/handlers/registration_handler.cpp
+    ${CMAKE_SOURCE_DIR}/tournament/agg/handlers/lifecycle_handler.cpp
+    ${CMAKE_SOURCE_DIR}/tournament/agg/handlers/rebuy_handler.cpp
+    ${CMAKE_SOURCE_DIR}/tournament/agg/handlers/advanced_handlers.cpp
+)
+
+# Phase I-Cpp-v3 HIGH-EX-2.5.1 — Reservation aggregate.
+set(RESERVATION_HANDLER_SOURCES
+    ${CMAKE_SOURCE_DIR}/reservation/agg/src/reservation_state.cpp
+    ${CMAKE_SOURCE_DIR}/reservation/agg/handlers/reservation_handlers.cpp
+)
+
+# Phase I-Cpp-v3 HIGH-EX-4.1 — Hand flow PM phase-transition table.
+set(PMG_HAND_FLOW_SOURCES
+    ${CMAKE_SOURCE_DIR}/hand-flow-oo/src/hand_flow_phases.cpp
 )
 
 # Common include directories for test executables
@@ -82,6 +114,12 @@ set(TEST_INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}/table/agg/handlers
     ${CMAKE_SOURCE_DIR}/hand/agg/src
     ${CMAKE_SOURCE_DIR}/hand/agg/handlers
+    ${CMAKE_SOURCE_DIR}/tournament/agg/src
+    ${CMAKE_SOURCE_DIR}/tournament/agg/handlers
+    ${CMAKE_SOURCE_DIR}/reservation/agg/src
+    ${CMAKE_SOURCE_DIR}/reservation/agg/handlers
+    ${CMAKE_SOURCE_DIR}/reservation/pmg/src
+    ${CMAKE_SOURCE_DIR}/hand-flow-oo/src
 )
 
 # Common link libraries for test executables
@@ -209,7 +247,20 @@ set_tests_properties(gherkin_acceptance PROPERTIES
 add_executable(mutation_tests
     mutation_test.cpp
     ${PLAYER_HANDLER_SOURCES}
+    ${TABLE_HANDLER_SOURCES}
+    ${HAND_HANDLER_SOURCES}
+    ${TOURNAMENT_HANDLER_SOURCES}
+    ${RESERVATION_HANDLER_SOURCES}
+    ${PMG_HAND_FLOW_SOURCES}
 )
+# Phase I-Cpp-v3 — register mutation_tests as a ctest entry so `ctest` exercises
+# the gtest unit binary even when the cucumber wire harness isn't installed.
+add_test(
+    NAME mutation_tests
+    COMMAND mutation_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(mutation_tests PROPERTIES LABELS "mutation;unit")
 
 target_include_directories(mutation_tests PRIVATE ${TEST_INCLUDE_DIRS})
 target_link_libraries(mutation_tests PRIVATE

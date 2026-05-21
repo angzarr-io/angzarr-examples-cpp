@@ -5,65 +5,83 @@
 
 set shell := ["bash", "-c"]
 
-BUILD_DIR := "build"
-PROTO_DIR := "angzarr-client-cpp/angzarr/proto"
+# All cmake invocations go through CMakePresets.json. The `default` preset
+# writes to ${sourceDir}/build/container/ (gcc, BUILD_TESTS=ON, Release).
+# The `mutation` preset writes to build/container-mull/ (clang-17 + mull
+# IR-frontend pass plugin). Inline -D flags are forbidden — adding a flag
+# means editing the preset so every recipe + every IDE picks it up.
+BUILD_DIR := "build/container"
 
 default:
     @just --list
 
-# Export proto files: core and examples from angzarr-project submodule
-proto-gen:
-    rm -rf {{PROTO_DIR}}
-    mkdir -p $(dirname {{PROTO_DIR}})
-    buf export angzarr-project/proto -o _proto_export
-    mv _proto_export {{PROTO_DIR}}
-    rm -f {{PROTO_DIR}}/examples/ai_sidecar.proto
+# =============================================================================
+# Proto generation — container-side executor.
+# =============================================================================
+# `just generate-proto` (host-side) is the canonical entrypoint and handles
+# the staleness check + container dispatch. Inside the container this recipe
+# drives CMake's `add_custom_command(OUTPUT … COMMAND
+# ${Protobuf_PROTOC_EXECUTABLE} …)` rules by building the proto_gen
+# aggregator target. protoc reads .proto sources directly from
+# angzarr-project/proto/ (no copy/stage) and writes generated .pb.{cc,h}
+# under build/container/generated/. No mutation of any submodule WT —
+# submodule.just's check-submodules-clean stays green.
+generate-proto-force:
+    cmake --preset default
+    cmake --build --preset proto-gen -j$(nproc)
 
-# Configure and build all C++ components (use gcc for cucumber-cpp compat)
-build: proto-gen
-    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
-    cmake --build {{BUILD_DIR}} -j$(nproc)
+# Export proto files: core and examples from angzarr-project submodule.
+# Legacy alias — kept so existing recipe-deps and muscle memory keep
+# working. Delegates to the canonical force-regen recipe.
+proto-gen: generate-proto-force
+
+# Configure and build all C++ components (cucumber-cpp tests included).
+build:
+    cmake --preset default
+    cmake --build --preset default -j$(nproc)
 
 # Run unit tests (in-process handlers via cucumber-cpp wire protocol)
 test-unit:
-    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
-    cmake --build {{BUILD_DIR}} -j$(nproc)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cmake --preset default
+    cmake --build --preset default -j$(nproc)
     # Install cucumber gems via bundler
-    cd features && bundle install --quiet
+    cd features && bundle install --quiet && cd ..
     # Start the wire server in background (unit_tests binary)
     ./{{BUILD_DIR}}/tests/unit_tests -p 3902 &
-    WIRE_PID=$$!; \
-    sleep 1; \
-    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require step_definitions --format progress unit/ || { kill $$WIRE_PID 2>/dev/null; exit 1; }; \
-    kill $$WIRE_PID 2>/dev/null || true
+    WIRE_PID=$!
+    trap 'kill $WIRE_PID 2>/dev/null || true' EXIT
+    sleep 1
+    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require step_definitions --format progress unit/
 
 # Run Gherkin acceptance tests via CommandClient abstraction
 # If PLAYER_URL is set, connects to deployed coordinator via gRPC.
 # If PLAYER_URL is unset, uses in-process handler calls.
 test-acceptance:
-    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
-    cmake --build {{BUILD_DIR}} -j$(nproc)
-    # Install cucumber gems via bundler
-    cd features && bundle install --quiet
-    # Start the acceptance wire server in background
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cmake --preset default
+    cmake --build --preset default -j$(nproc)
+    cd features && bundle install --quiet && cd ..
     PLAYER_URL="${PLAYER_URL:-}" ./{{BUILD_DIR}}/tests/acceptance_runner -p 3903 &
-    WIRE_PID=$$!; \
-    sleep 1; \
-    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require acceptance/step_definitions --format progress acceptance/ || { kill $$WIRE_PID 2>/dev/null; exit 1; }; \
-    kill $$WIRE_PID 2>/dev/null || true
+    WIRE_PID=$!
+    trap 'kill $WIRE_PID 2>/dev/null || true' EXIT
+    sleep 1
+    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require acceptance/step_definitions --format progress acceptance/
 
 # Run acceptance tests against deployed system (gRPC)
 test-acceptance-grpc:
-    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
-    cmake --build {{BUILD_DIR}} -j$(nproc)
-    # Install cucumber gems via bundler
-    cd features && bundle install --quiet
-    # Start the acceptance wire server with gRPC mode
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cmake --preset default
+    cmake --build --preset default -j$(nproc)
+    cd features && bundle install --quiet && cd ..
     PLAYER_URL="${PLAYER_URL:-localhost:1310}" ./{{BUILD_DIR}}/tests/acceptance_runner -p 3903 &
-    WIRE_PID=$$!; \
-    sleep 1; \
-    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require acceptance/step_definitions --format progress acceptance/ || { kill $$WIRE_PID 2>/dev/null; exit 1; }; \
-    kill $$WIRE_PID 2>/dev/null || true
+    WIRE_PID=$!
+    trap 'kill $WIRE_PID 2>/dev/null || true' EXIT
+    sleep 1
+    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require acceptance/step_definitions --format progress acceptance/
 
 # Run all tests
 test: test-unit test-acceptance
@@ -74,18 +92,30 @@ fmt:
 
 # Lint with clang-tidy (only files known to compile_commands.json)
 lint:
-    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    cmake --preset default
     grep '"file"' {{BUILD_DIR}}/compile_commands.json \
         | sed 's/.*"file": *"//;s/".*//' \
         | grep -v '/build/' \
         | sort -u \
         | xargs clang-tidy -p {{BUILD_DIR}}
 
-# Clean build artifacts
+# Cross-language alias — `just check` runs lint + fmt-check.
+check: fmt
+
+# Clean build artifacts (inside container — host wrapper has the chmod guard).
 clean:
-    rm -rf {{BUILD_DIR}}
+    rm -rf build/container build/container-mull
+    # Sweep pre-presets variant trees if any remained mounted from the host.
+    rm -rf build-mull build-mull-* build-regen build-sanity build-iter*
 
 # Run Mull mutation testing on unit test binary
+#
+# NOTE: Mull mutates compiled LLVM IR, NOT .cpp/.hpp source. The host-side
+# `mutation-test` recipe routes through `_container-ephemeral` so the
+# build-mull/ tree lives in the container's writable overlay layer and is
+# destroyed by `--rm` on exit. If $CCACHE_DIR is set (provided by the
+# ephemeral helper as /ccache) and ccache is available, we wire it as the
+# compiler launcher to keep mutation iteration fast across runs.
 mutation-test:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -95,13 +125,18 @@ mutation-test:
         exit 1
     fi
     echo "Running Mull mutation testing ($($MULL --version 2>&1 | head -1))..."
-    # Build with clang-17 + debug info so mull can read LLVM IR
-    cmake -B {{BUILD_DIR}}-mull -S . -DBUILD_TESTS=ON \
-        -DCMAKE_C_COMPILER=clang-17 \
-        -DCMAKE_CXX_COMPILER=clang++-17 \
-        -DCMAKE_CXX_FLAGS="-g -grecord-command-line -w"
-    cmake --build {{BUILD_DIR}}-mull -j$(nproc) --target mutation_tests
-    $MULL {{BUILD_DIR}}-mull/tests/mutation_tests
+    # The `mutation` preset pins clang-17 + the IR-frontend pass plugin
+    # + debug info. ccache is wired here (not in the preset) so it's only
+    # active when the ephemeral helper provides $CCACHE_DIR — keeps
+    # non-ephemeral mutation runs reproducible.
+    CCACHE_ARGS=()
+    if command -v ccache >/dev/null 2>&1 && [ -n "${CCACHE_DIR:-}" ]; then
+        CCACHE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER=ccache
+                     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+    fi
+    cmake --preset mutation "${CCACHE_ARGS[@]}"
+    cmake --build --preset mutation -j$(nproc)
+    $MULL build/container-mull/tests/mutation_tests
     echo "Mutation testing complete."
 
 # Auto-format code (clang-format, Google style)

@@ -18,93 +18,96 @@ constexpr const char* PM_NAME = "pmg-hand-flow";
 
 /// gRPC service implementation for hand-flow process manager.
 class HandFlowService final : public angzarr::ProcessManagerService::Service {
-   public:
-    HandFlowService()
-        : manager_([this](const angzarr::CommandBook& cmd) {
-              // Command sender callback - would forward to aggregate coordinator
-              std::cout << "Would send command to domain: " << cmd.cover().domain() << std::endl;
-          }) {}
+ public:
+  HandFlowService()
+      : manager_([this](const angzarr::CommandBook& cmd) {
+          // Command sender callback - would forward to aggregate coordinator
+          std::cout << "Would send command to domain: " << cmd.cover().domain()
+                    << std::endl;
+        }) {}
 
-    grpc::Status Handle(grpc::ServerContext* context,
-                        const angzarr::ProcessManagerHandleRequest* request,
-                        angzarr::ProcessManagerHandleResponse* response) override {
-        // Process each event in the trigger
-        for (const auto& page : request->trigger().pages()) {
-            const auto& event_any = page.event();
-            const std::string& type_url = event_any.type_url();
+  grpc::Status Handle(
+      grpc::ServerContext* context,
+      const angzarr::ProcessManagerHandleRequest* request,
+      angzarr::ProcessManagerHandleResponse* response) override {
+    // Process each event in the trigger
+    for (const auto& page : request->trigger().pages()) {
+      const auto& event_any = page.event();
+      const std::string& type_url = event_any.type_url();
 
-            std::optional<angzarr::CommandBook> cmd;
+      std::optional<angzarr::CommandBook> cmd;
 
-            if (type_url.find("HandStarted") != std::string::npos) {
-                examples::HandStarted event;
-                if (event_any.UnpackTo(&event)) {
-                    cmd = manager_.start_hand(event);
-                }
-            } else if (type_url.find("CardsDealt") != std::string::npos) {
-                examples::CardsDealt event;
-                if (event_any.UnpackTo(&event)) {
-                    cmd = manager_.handle_cards_dealt(event);
-                }
-            } else if (type_url.find("BlindPosted") != std::string::npos) {
-                examples::BlindPosted event;
-                if (event_any.UnpackTo(&event)) {
-                    cmd = manager_.handle_blind_posted(event);
-                }
-            } else if (type_url.find("ActionTaken") != std::string::npos) {
-                examples::ActionTaken event;
-                if (event_any.UnpackTo(&event)) {
-                    cmd = manager_.handle_action_taken(event);
-                }
-            } else if (type_url.find("CommunityCardsDealt") != std::string::npos) {
-                examples::CommunityCardsDealt event;
-                if (event_any.UnpackTo(&event)) {
-                    cmd = manager_.handle_community_cards_dealt(event);
-                }
-            } else if (type_url.find("ShowdownStarted") != std::string::npos) {
-                examples::ShowdownStarted event;
-                if (event_any.UnpackTo(&event)) {
-                    cmd = manager_.handle_showdown_started(event);
-                }
-            } else if (type_url.find("PotAwarded") != std::string::npos) {
-                examples::PotAwarded event;
-                if (event_any.UnpackTo(&event)) {
-                    manager_.handle_pot_awarded(event);
-                }
-            }
-
-            if (cmd.has_value()) {
-                *response->add_commands() = cmd.value();
-            }
+      if (type_url.find("HandStarted") != std::string::npos) {
+        examples::HandStarted event;
+        if (event_any.UnpackTo(&event)) {
+          cmd = manager_.start_hand(event);
         }
+      } else if (type_url.find("CardsDealt") != std::string::npos) {
+        examples::CardsDealt event;
+        if (event_any.UnpackTo(&event)) {
+          cmd = manager_.handle_cards_dealt(event);
+        }
+      } else if (type_url.find("BlindPosted") != std::string::npos) {
+        examples::BlindPosted event;
+        if (event_any.UnpackTo(&event)) {
+          cmd = manager_.handle_blind_posted(event);
+        }
+      } else if (type_url.find("ActionTaken") != std::string::npos) {
+        examples::ActionTaken event;
+        if (event_any.UnpackTo(&event)) {
+          cmd = manager_.handle_action_taken(event);
+        }
+      } else if (type_url.find("CommunityCardsDealt") != std::string::npos) {
+        examples::CommunityCardsDealt event;
+        if (event_any.UnpackTo(&event)) {
+          cmd = manager_.handle_community_cards_dealt(event);
+        }
+      } else if (type_url.find("ShowdownStarted") != std::string::npos) {
+        examples::ShowdownStarted event;
+        if (event_any.UnpackTo(&event)) {
+          cmd = manager_.handle_showdown_started(event);
+        }
+      } else if (type_url.find("PotAwarded") != std::string::npos) {
+        examples::PotAwarded event;
+        if (event_any.UnpackTo(&event)) {
+          manager_.handle_pot_awarded(event);
+        }
+      }
 
-        return grpc::Status::OK;
+      if (cmd.has_value()) {
+        *response->add_commands() = cmd.value();
+      }
     }
 
-   private:
-    hand_flow::HandProcessManager manager_;
+    return grpc::Status::OK;
+  }
+
+ private:
+  hand_flow::HandProcessManager manager_;
 };
 
 }  // anonymous namespace
 
 int main(int argc, char** argv) {
-    int port = DEFAULT_PORT;
-    if (argc > 1) {
-        port = std::stoi(argv[1]);
-    }
+  int port = DEFAULT_PORT;
+  if (argc > 1) {
+    port = std::stoi(argv[1]);
+  }
 
-    std::string server_address = "0.0.0.0:" + std::to_string(port);
+  std::string server_address = "0.0.0.0:" + std::to_string(port);
 
-    grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
 
-    HandFlowService service;
+  HandFlowService service;
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService(&service);
+  grpc::ServerBuilder builder;
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+  builder.RegisterService(&service);
 
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Hand-Flow process manager listening on " << server_address << std::endl;
+  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+  std::cout << "Hand-Flow process manager listening on " << server_address
+            << std::endl;
 
-    server->Wait();
-    return 0;
+  server->Wait();
+  return 0;
 }

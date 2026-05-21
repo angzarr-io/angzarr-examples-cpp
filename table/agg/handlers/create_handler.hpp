@@ -7,7 +7,8 @@ namespace table {
 namespace handlers {
 
 /// Handle CreateTable command.
-examples::TableCreated handle_create_table(const examples::CreateTable& cmd, const TableState& state);
+examples::TableCreated handle_create_table(const examples::CreateTable& cmd,
+                                           const TableState& state);
 
 }  // namespace handlers
 }  // namespace table

@@ -4,5 +4,24 @@
 ARG CPP_IMAGE=ghcr.io/angzarr-io/angzarr-cpp:latest
 FROM ${CPP_IMAGE}
 
+# INFRA-1: see Rust devcontainer comment. Applies system-wide so the
+# `_container` entry's `git rev-parse --show-toplevel` succeeds against
+# the bind-mounted /workspace under rootless docker.
+USER root
+RUN git config --system --add safe.directory '*' \
+ && git config --system --add safe.directory '/workspace' \
+ && git config --system --add safe.directory '/angzarr'
+
 # Mark as devcontainer for justfile detection
 ENV DEVCONTAINER=true
+
+# Mutation tooling: mull-17 0.33.0 is pre-baked in the upstream
+# ghcr.io/angzarr-io/angzarr-cpp:latest image (mull-runner-17 +
+# mull-ir-frontend-17). Surface the canonical paths via env vars so the
+# cross-language `just mutate` recipe can locate them without hardcoding.
+# Phase E.v2 (2026-05-16) noted a segfault in mull-ir-frontend-17 against
+# the bundled libabsl 20220623 — next image refresh should bisect.
+ARG MULL_VERSION=0.33.0
+ENV ANGZARR_MULL_VERSION=${MULL_VERSION}
+ENV ANGZARR_MULL_RUNNER=/usr/bin/mull-runner-17
+ENV ANGZARR_MULL_IR_FRONTEND=/usr/lib/mull-ir-frontend-17

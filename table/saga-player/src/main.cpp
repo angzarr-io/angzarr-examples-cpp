@@ -11,7 +11,9 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
+#include "angzarr/destinations.hpp"
 #include "angzarr/macros.hpp"
 #include "angzarr/saga.grpc.pb.h"
 #include "angzarr/saga.hpp"
@@ -33,103 +35,112 @@ constexpr int DEFAULT_PORT = 50413;
  * may produce multiple commands targeting different player aggregates.
  */
 class TablePlayerSaga : public angzarr::Saga {
-   public:
-    ANGZARR_SAGA("saga-table-player", "table", "player")
+ public:
+  ANGZARR_SAGA("saga-table-player", "table", "player")
 
-    TablePlayerSaga() {
-        register_event_handler("HandEnded",
-            [](angzarr::Saga* self, const google::protobuf::Any& any,
-               const std::string& corr_id) -> std::vector<angzarr::CommandBook> {
-                examples::HandEnded event;
-                any.UnpackTo(&event);
-                return static_cast<TablePlayerSaga*>(self)->handle_HandEnded(event, corr_id);
-            });
+  TablePlayerSaga() {
+    register_event_handler(
+        "HandEnded",
+        [](angzarr::Saga* self, const google::protobuf::Any& any,
+           const std::string& corr_id) -> std::vector<angzarr::CommandBook> {
+          examples::HandEnded event;
+          any.UnpackTo(&event);
+          return static_cast<TablePlayerSaga*>(self)->handle_HandEnded(event,
+                                                                       corr_id);
+        });
+  }
+
+ protected:
+  std::vector<angzarr::CommandBook> handle_HandEnded(
+      const examples::HandEnded& event, const std::string& corr_id) {
+    std::vector<angzarr::CommandBook> commands;
+
+    for (const auto& [player_hex, stack_change] : event.stack_changes()) {
+      (void)stack_change;
+
+      // Convert hex string to bytes
+      std::string player_bytes;
+      for (size_t i = 0; i < player_hex.length(); i += 2) {
+        player_bytes +=
+            static_cast<char>(std::stoi(player_hex.substr(i, 2), nullptr, 16));
+      }
+
+      examples::ReleaseFunds release;
+      // Post-2026-04-19 proto evolution: reservation flows use `key` (opaque
+      // bytes-handle), not `table_root`.
+      release.set_key(event.hand_root());
+
+      angzarr::CommandBook cmd_book;
+      auto* cover = cmd_book.mutable_cover();
+      cover->set_domain(output_domain());
+      cover->mutable_root()->set_value(player_bytes);
+      cover->set_correlation_id(corr_id);
+
+      auto* page = cmd_book.add_pages();
+      page->mutable_header()->mutable_angzarr_deferred();
+      page->mutable_command()->PackFrom(release, "type.googleapis.com/");
+
+      commands.push_back(std::move(cmd_book));
     }
 
-   protected:
-    std::vector<angzarr::CommandBook> handle_HandEnded(const examples::HandEnded& event,
-                                                       const std::string& corr_id) {
-        std::vector<angzarr::CommandBook> commands;
-
-        for (const auto& [player_hex, stack_change] : event.stack_changes()) {
-            (void)stack_change;
-
-            // Convert hex string to bytes
-            std::string player_bytes;
-            for (size_t i = 0; i < player_hex.length(); i += 2) {
-                player_bytes +=
-                    static_cast<char>(std::stoi(player_hex.substr(i, 2), nullptr, 16));
-            }
-
-            examples::ReleaseFunds release;
-            release.set_table_root(event.hand_root());
-
-            angzarr::CommandBook cmd_book;
-            auto* cover = cmd_book.mutable_cover();
-            cover->set_domain(output_domain());
-            cover->mutable_root()->set_value(player_bytes);
-            cover->set_correlation_id(corr_id);
-
-            auto* page = cmd_book.add_pages();
-            page->mutable_header()->mutable_angzarr_deferred();
-            page->mutable_command()->PackFrom(release, "type.googleapis.com/");
-
-            commands.push_back(std::move(cmd_book));
-        }
-
-        return commands;
-    }
+    return commands;
+  }
 };
 
 /**
  * gRPC service for Table->Player saga using OO pattern.
  */
 class TablePlayerSagaService final : public angzarr::SagaService::Service {
-   public:
-    grpc::Status Handle(grpc::ServerContext* context, const angzarr::SagaHandleRequest* request,
-                        angzarr::SagaResponse* response) override {
-        (void)context;
-        std::vector<angzarr::EventBook> destinations;
+ public:
+  grpc::Status Handle(grpc::ServerContext* context,
+                      const angzarr::SagaHandleRequest* request,
+                      angzarr::SagaResponse* response) override {
+    (void)context;
+    std::unordered_map<std::string, uint32_t> seq_map(
+        request->destination_sequences().begin(),
+        request->destination_sequences().end());
+    angzarr::Destinations destinations(seq_map);
 
-        auto result = saga_.dispatch(request->source(), destinations);
+    auto result = saga_.dispatch(request->source(), destinations);
 
-        for (const auto& cmd : result.commands) {
-            *response->add_commands() = cmd;
-        }
-        for (const auto& fact : result.facts) {
-            *response->add_events() = fact;
-        }
-
-        return grpc::Status::OK;
+    for (const auto& cmd : result.commands) {
+      *response->add_commands() = cmd;
+    }
+    for (const auto& fact : result.facts) {
+      *response->add_events() = fact;
     }
 
-   private:
-    TablePlayerSaga saga_;
+    return grpc::Status::OK;
+  }
+
+ private:
+  TablePlayerSaga saga_;
 };
 
 }  // anonymous namespace
 
 int main(int argc, char** argv) {
-    int port = DEFAULT_PORT;
-    if (const char* env_port = std::getenv("GRPC_PORT")) {
-        port = std::stoi(env_port);
-    } else if (argc > 1) {
-        port = std::stoi(argv[1]);
-    }
+  int port = DEFAULT_PORT;
+  if (const char* env_port = std::getenv("GRPC_PORT")) {
+    port = std::stoi(env_port);
+  } else if (argc > 1) {
+    port = std::stoi(argv[1]);
+  }
 
-    std::string server_address = "0.0.0.0:" + std::to_string(port);
+  std::string server_address = "0.0.0.0:" + std::to_string(port);
 
-    grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
 
-    TablePlayerSagaService service;
+  TablePlayerSagaService service;
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService(&service);
+  grpc::ServerBuilder builder;
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+  builder.RegisterService(&service);
 
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Table->Player saga (OO) listening on " << server_address << std::endl;
+  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+  std::cout << "Table->Player saga (OO) listening on " << server_address
+            << std::endl;
 
-    server->Wait();
-    return 0;
+  server->Wait();
+  return 0;
 }

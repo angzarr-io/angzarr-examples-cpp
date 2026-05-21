@@ -11,7 +11,9 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
+#include "angzarr/destinations.hpp"
 #include "angzarr/macros.hpp"
 #include "angzarr/saga.grpc.pb.h"
 #include "angzarr/saga.hpp"
@@ -30,76 +32,98 @@ constexpr int DEFAULT_PORT = 50412;
  * Sends EndHand commands to Table domain.
  */
 class HandTableSaga : public angzarr::Saga {
-   public:
-    ANGZARR_SAGA("saga-hand-table", "hand", "table")
+ public:
+  ANGZARR_SAGA("saga-hand-table", "hand", "table")
 
-    ANGZARR_REACTS_TO(HandComplete)
-    (const examples::HandComplete& event) {
-        examples::EndHand end_hand;
-        // hand_root comes from the source cover, but we also have table_root in the event
-        end_hand.set_hand_root(event.table_root());  // The hand's own root
+  HandTableSaga() {
+    // Constructor-side registration replaces ANGZARR_REACTS_TO (disabled
+    // in angzarr-client-cpp/include/angzarr/macros.hpp:161 — it relied on
+    // `decltype(this)` at class scope).
+    register_event_handler(
+        "HandComplete",
+        [](angzarr::Saga* self, const google::protobuf::Any& any,
+           const std::string& corr_id) -> std::vector<angzarr::CommandBook> {
+          examples::HandComplete event;
+          any.UnpackTo(&event);
+          return static_cast<HandTableSaga*>(self)->handle_HandComplete(
+              event, corr_id);
+        });
+  }
 
-        for (const auto& winner : event.winners()) {
-            auto* result = end_hand.add_results();
-            result->set_winner_root(winner.player_root());
-            result->set_amount(winner.amount());
-            result->set_pot_type(winner.pot_type());
-            *result->mutable_winning_hand() = winner.winning_hand();
-        }
+ protected:
+  std::vector<angzarr::CommandBook> handle_HandComplete(
+      const examples::HandComplete& event, const std::string& corr_id) {
+    examples::EndHand end_hand;
+    // hand_root comes from the source cover, but we also have table_root in the
+    // event
+    end_hand.set_hand_root(event.table_root());  // The hand's own root
 
-        return end_hand;
+    for (const auto& winner : event.winners()) {
+      auto* result = end_hand.add_results();
+      result->set_winner_root(winner.player_root());
+      result->set_amount(winner.amount());
+      result->set_pot_type(winner.pot_type());
+      *result->mutable_winning_hand() = winner.winning_hand();
     }
+
+    return pack_commands(end_hand, corr_id);
+  }
 };
 
 /**
  * gRPC service for Hand->Table saga using OO pattern.
  */
 class HandTableSagaService final : public angzarr::SagaService::Service {
-   public:
-    grpc::Status Handle(grpc::ServerContext* context, const angzarr::SagaHandleRequest* request,
-                        angzarr::SagaResponse* response) override {
-        (void)context;
-        std::vector<angzarr::EventBook> destinations;
+ public:
+  grpc::Status Handle(grpc::ServerContext* context,
+                      const angzarr::SagaHandleRequest* request,
+                      angzarr::SagaResponse* response) override {
+    (void)context;
+    std::unordered_map<std::string, uint32_t> seq_map(
+        request->destination_sequences().begin(),
+        request->destination_sequences().end());
+    angzarr::Destinations destinations(seq_map);
 
-        auto result = saga_.dispatch(request->source(), destinations);
+    auto result = saga_.dispatch(request->source(), destinations);
 
-        for (const auto& cmd : result.commands) {
-            *response->add_commands() = cmd;
-        }
-        for (const auto& fact : result.facts) {
-            *response->add_events() = fact;
-        }
-
-        return grpc::Status::OK;
+    for (const auto& cmd : result.commands) {
+      *response->add_commands() = cmd;
+    }
+    for (const auto& fact : result.facts) {
+      *response->add_events() = fact;
     }
 
-   private:
-    HandTableSaga saga_;
+    return grpc::Status::OK;
+  }
+
+ private:
+  HandTableSaga saga_;
 };
 
 }  // anonymous namespace
 
 int main(int argc, char** argv) {
-    int port = DEFAULT_PORT;
-    if (const char* env_port = std::getenv("GRPC_PORT")) {
-        port = std::stoi(env_port);
-    } else if (argc > 1) {
-        port = std::stoi(argv[1]);
-    }
+  int port = DEFAULT_PORT;
+  if (const char* env_port = std::getenv("GRPC_PORT")) {
+    port = std::stoi(env_port);
+  } else if (argc > 1) {
+    port = std::stoi(argv[1]);
+  }
 
-    std::string server_address = "0.0.0.0:" + std::to_string(port);
+  std::string server_address = "0.0.0.0:" + std::to_string(port);
 
-    grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
 
-    HandTableSagaService service;
+  HandTableSagaService service;
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService(&service);
+  grpc::ServerBuilder builder;
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+  builder.RegisterService(&service);
 
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Hand->Table saga (OO) listening on " << server_address << std::endl;
+  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+  std::cout << "Hand->Table saga (OO) listening on " << server_address
+            << std::endl;
 
-    server->Wait();
-    return 0;
+  server->Wait();
+  return 0;
 }
