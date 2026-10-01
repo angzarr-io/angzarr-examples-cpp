@@ -1,4 +1,4 @@
-# C++ poker examples
+# C++ examples
 #
 # Container Overlay Pattern:
 # --------------------------
