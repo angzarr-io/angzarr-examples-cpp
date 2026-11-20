@@ -1,0 +1,38 @@
+# Lefthook configuration
+# https://github.com/evilmartians/lefthook
+#
+# Setup: lefthook install
+
+# Plant the in-submodule pre-commit guard (angzarr-project/submodule.just's
+# install-submodule-hooks, imported by the justfile) after checkouts and
+# merges.
+#
+# A fresh clone or `git worktree add` runs post-checkout before any
+# submodule is checked out: angzarr-project/submodule.just is not there, so
+# the justfile's `import?` brings no `install-submodule-hooks`, and there is
+# no submodule checkout to guard either. The step says so, and how to
+# install the guard once the submodules are checked out; with
+# submodule.just there, the recipe runs and its failure fails the hook.
+post-checkout:
+  commands:
+    install-submodule-hooks:
+      run: &install-submodule-hooks >-
+        if [ -f angzarr-project/submodule.just ]; then just install-submodule-hooks;
+        else echo "no submodule guard installed: angzarr-project is not checked out (git submodule update --init, then just install-submodule-hooks)";
+        fi
+
+post-merge:
+  commands:
+    install-submodule-hooks:
+      run: *install-submodule-hooks
+
+pre-commit:
+  parallel: false
+  commands:
+    # git exports GIT_DIR/GIT_INDEX_FILE (absolute, pointing at the parent
+    # repository) to hooks run from a linked worktree; inherited by the
+    # recipe's `git -C <submodule> status`, they would diff the submodule's
+    # files against the parent's index. Clearing them scopes each git call to
+    # the repository its -C path names.
+    check-submodules-clean:
+      run: env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE just check-submodules-clean

@@ -1,0 +1,106 @@
+# C++ Poker Example - Helm values for angzarr chart
+# Deploy: helm upgrade --install poker oci://ghcr.io/angzarr-io/charts/angzarr -f deploy/k8s/helm/values.yaml -n angzarr-test
+#
+# =============================================================================
+# Port Scheme - C++ (50600-50699)
+# =============================================================================
+# agg-player:         50601
+# agg-table:          50602
+# agg-hand:           50603
+# saga-table-hand:    50611
+# saga-table-player:  50612
+# saga-hand-table:    50613
+# saga-hand-player:   50614
+# pmg-hand-flow:      50691
+# prj-output:         50690
+# =============================================================================
+
+# Infrastructure services
+infrastructure:
+  gateway:
+    enabled: true
+    grpcTarget: "player-aggregate:1310"
+
+# Poker domain applications
+applications:
+  business:
+    - name: agg-player
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-agg-player
+        tag: "latest"
+      domain: "player"
+      port: 50601
+
+    - name: agg-table
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-agg-table
+        tag: "latest"
+      domain: "table"
+      port: 50602
+
+    - name: agg-hand
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-agg-hand
+        tag: "latest"
+      domain: "hand"
+      port: 50603
+
+  sagas:
+    - name: saga-table-hand
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-saga-table-hand
+        tag: "latest"
+      domain: "table-hand"
+      port: 50611
+      topics:
+        - "table.*"
+
+    - name: saga-table-player
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-saga-table-player
+        tag: "latest"
+      domain: "table-player"
+      port: 50612
+      topics:
+        - "table.*"
+
+    - name: saga-hand-table
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-saga-hand-table
+        tag: "latest"
+      domain: "hand-table"
+      port: 50613
+      topics:
+        - "hand.*"
+
+    - name: saga-hand-player
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-saga-hand-player
+        tag: "latest"
+      domain: "hand-player"
+      port: 50614
+      topics:
+        - "hand.*"
+
+  processManagers:
+    - name: pmg-hand-flow
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-pmg-hand-flow
+        tag: "latest"
+      domain: "pmg-hand-flow"
+      port: 50691
+      topics:
+        - "table.*"
+        - "hand.*"
+
+  projectors:
+    - name: prj-output
+      image:
+        repository: ghcr.io/angzarr-io/examples-cpp-prj-output
+        tag: "latest"
+      domain: "output"
+      port: 50690
+      topics:
+        - "player.*"
+        - "table.*"
+        - "hand.*"

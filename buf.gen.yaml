@@ -1,0 +1,9 @@
+version: v2
+inputs:
+  - module: buf.build/angzarr/angzarr
+  - directory: proto  # Local poker domain protos
+plugins:
+  - remote: buf.build/protocolbuffers/cpp
+    out: proto
+  - remote: buf.build/grpc/cpp
+    out: proto

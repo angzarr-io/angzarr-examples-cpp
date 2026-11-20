@@ -1,0 +1,78 @@
+# C++ poker examples - container execution
+#
+# This file runs inside the devcontainer and executes actual build commands.
+# It's mounted over justfile when running in a container.
+
+set shell := ["bash", "-c"]
+
+BUILD_DIR := "build"
+
+default:
+    @just --list
+
+# Configure and build all C++ components. CMake reads .proto files
+# directly from `angzarr-project/proto/` — no buf-export staging step.
+build:
+    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
+    cmake --build {{BUILD_DIR}} -j$(nproc)
+
+# Run unit tests (in-process handlers via cucumber-cpp wire protocol)
+test-unit:
+    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
+    cmake --build {{BUILD_DIR}} -j$(nproc)
+    # Install cucumber gems via bundler
+    cd features && bundle install --quiet
+    # Start the wire server in background (unit_tests binary)
+    ./{{BUILD_DIR}}/tests/unit_tests -p 3902 &
+    WIRE_PID=$$!; \
+    sleep 1; \
+    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require step_definitions --format progress unit/ || { kill $$WIRE_PID 2>/dev/null; exit 1; }; \
+    kill $$WIRE_PID 2>/dev/null || true
+
+# Run Gherkin acceptance tests via CommandClient abstraction
+# If PLAYER_URL is set, connects to deployed coordinator via gRPC.
+# If PLAYER_URL is unset, uses in-process handler calls.
+test-acceptance:
+    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
+    cmake --build {{BUILD_DIR}} -j$(nproc)
+    # Install cucumber gems via bundler
+    cd features && bundle install --quiet
+    # Start the acceptance wire server in background
+    PLAYER_URL="${PLAYER_URL:-}" ./{{BUILD_DIR}}/tests/acceptance_runner -p 3903 &
+    WIRE_PID=$$!; \
+    sleep 1; \
+    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require acceptance/step_definitions --format progress acceptance/ || { kill $$WIRE_PID 2>/dev/null; exit 1; }; \
+    kill $$WIRE_PID 2>/dev/null || true
+
+# Run acceptance tests against deployed system (gRPC)
+test-acceptance-grpc:
+    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON
+    cmake --build {{BUILD_DIR}} -j$(nproc)
+    # Install cucumber gems via bundler
+    cd features && bundle install --quiet
+    # Start the acceptance wire server with gRPC mode
+    PLAYER_URL="${PLAYER_URL:-localhost:1310}" ./{{BUILD_DIR}}/tests/acceptance_runner -p 3903 &
+    WIRE_PID=$$!; \
+    sleep 1; \
+    cd features && CUCUMBER_PUBLISH_QUIET=true bundle exec cucumber --require acceptance/step_definitions --format progress acceptance/ || { kill $$WIRE_PID 2>/dev/null; exit 1; }; \
+    kill $$WIRE_PID 2>/dev/null || true
+
+# Run all tests
+test: test-unit test-acceptance
+
+# Format code with clang-format
+fmt:
+    find . -name "*.cpp" -o -name "*.hpp" | grep -v build | xargs clang-format -i
+
+# Lint with clang-tidy (only files known to compile_commands.json)
+lint:
+    cmake -B {{BUILD_DIR}} -S . -DBUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    grep '"file"' {{BUILD_DIR}}/compile_commands.json \
+        | sed 's/.*"file": *"//;s/".*//' \
+        | grep -v '/build/' \
+        | sort -u \
+        | xargs clang-tidy -p {{BUILD_DIR}}
+
+# Clean build artifacts
+clean:
+    rm -rf {{BUILD_DIR}}
